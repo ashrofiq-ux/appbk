@@ -196,6 +196,42 @@ tr.rawan-t4 .tag{background:#fdecea;color:#c0392b}
 .back-float:hover{background:#155ab6;transform:scale(1.06)}
 .back-float:active{transform:scale(.95)}
 .back-float.on{display:flex}
+
+/* ===== DASHBOARD COMPACT + FAB ===== */
+.dash-head{background:linear-gradient(135deg,#0f4c81,#1a73e8);color:#fff;border-radius:12px;padding:11px 16px;text-align:center;margin-bottom:10px}
+.dash-head .who{font-size:11.5px;opacity:.85;letter-spacing:.5px;text-transform:uppercase}
+.dash-head .d{font-size:15px;font-weight:700;margin-top:3px}
+.dash-card{background:#fff;border-radius:12px;padding:12px 15px;box-shadow:0 1px 4px rgba(16,42,67,.08);margin-bottom:10px}
+.dash-card h2{font-size:14px;color:#0f4c81;margin-bottom:2px}
+.dash-card .sub{font-size:11.5px;color:#8494a4;margin-bottom:9px}
+.dash-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin-bottom:10px}
+.dash-stat{background:#fff;border-radius:9px;padding:8px 11px;box-shadow:0 1px 3px rgba(16,42,67,.07);border-left:3px solid #1a73e8;display:flex;align-items:center;gap:9px;min-height:48px}
+.dash-stat .n{font-size:20px;font-weight:800;color:#0f4c81;line-height:1}
+.dash-stat .l{font-size:11px;color:#8494a4;font-weight:600;line-height:1.15}
+.dash-stat.g{border-left-color:#27ae60}
+.dash-stat.r{border-left-color:#e74c3c}
+.dash-stat.y{border-left-color:#f39c12}
+.dash-stat.p{border-left-color:#8e44ad}
+.dash-stat.b{border-left-color:#2980b9}
+.dash-stat.pk{border-left-color:#e84393}
+.presensi-checklist{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.presensi-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;transition:.15s;border:1px solid transparent;user-select:none}
+.presensi-chip.done{background:#e6f7ee;color:#1e8449;border-color:#c4ebd6}
+.presensi-chip.pending{background:#f5f7fa;color:#8494a4;border-color:#e3eaf2}
+.presensi-chip:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.presensi-chip .mark{font-weight:900;font-size:13px}
+.dash-list{max-height:220px;overflow-y:auto}
+.dash-fab{position:fixed;right:20px;bottom:88px;display:flex;flex-direction:column;gap:9px;z-index:140;align-items:flex-end}
+.dash-fab .fab{background:#1a73e8;color:#fff;border-radius:26px;padding:11px 18px;font-size:13px;font-weight:700;box-shadow:0 6px 18px rgba(26,115,232,.4);display:inline-flex;align-items:center;gap:8px;transition:.18s;border:none;cursor:pointer}
+.dash-fab .fab:hover{transform:translateY(-2px);background:#155ab6}
+.dash-fab .fab.jurnal{background:#27ae60;box-shadow:0 6px 18px rgba(39,174,96,.4)}
+.dash-fab .fab.jurnal:hover{background:#1e8449}
+@media(max-width:600px){.dash-fab{right:14px;bottom:80px}.dash-fab .fab{padding:10px 14px;font-size:12px}}
+.toc-table{border:none;width:100%;font-size:12.5pt}
+.toc-table td{border:none;padding:4px 0;vertical-align:top}
+.toc-table td:last-child{text-align:right;width:70px;font-weight:600}
+.toc-table .toc-bab{font-weight:bold;padding-top:12px;color:#0f4c81}
+.toc-table .toc-sub{padding-left:24px}
 </style>
 </head>
 <body>
@@ -2023,6 +2059,21 @@ function clearSig(id){
 }
 
 /* ================= DASHBOARD ================= */
+function dashInputPresensi(kelas){
+  if(kelas) formInputKehadiran(today(), kelas);
+  else formInputKehadiran(today());
+}
+function dashInputJurnal(){
+  formJurnal();
+}
+/* ================= DASHBOARD ================= */
+function dashInputPresensi(kelas){
+  if(kelas) formInputKehadiran(today(), kelas);
+  else formInputKehadiran(today());
+}
+function dashInputJurnal(){
+  formJurnal();
+}
 function renderDashboard(){
   $('#main').innerHTML = '<div class="card"><div class="empty">Memuat data…</div></div>';
   var isPiket = (ST.user.role === 'gurupiket');
@@ -2032,6 +2083,19 @@ function renderDashboard(){
     if(!ST.guru){ $('#main').innerHTML = '<div class="card" style="border-left:4px solid #e74c3c"><h2>⚠️ Data Guru BK belum terdaftar</h2><div class="sub">Hubungi Administrator.</div><div style="margin-top:12px"><button class="btn" onclick="logout()">Keluar</button></div></div>'; return; }
     if(!ST.guru.KelasAmpu){ $('#main').innerHTML = '<div class="card" style="border-left:4px solid #f39c12"><h2>⚠️ Anda belum memiliki kelas ampu</h2><div style="margin-top:12px"><button class="btn2" onclick="refreshMyGuru()">🔄 Muat Ulang</button> <button class="btn" onclick="logout()">Keluar</button></div></div>'; return; }
   }
+
+  /* ===== TAMU: tampilkan hanya header ringkas, tanpa informasi apapun ===== */
+  if(isTamu){
+    var roleLabelTamu = 'Tamu';
+    var htmlTamu = '';
+    htmlTamu += '<div class="dash-head"><div class="who">'+esc(roleLabelTamu)+'</div><div class="d">'+tglPanjang(today())+'</div></div>';
+    htmlTamu += '<div class="dash-card" style="text-align:center;padding:28px 16px">';
+    htmlTamu += '<div style="font-size:14px;color:#5a6b7c;line-height:1.7">Selamat datang. Silakan pilih menu <b>Siswa Rawan</b> atau <b>Report</b> pada panel di samping untuk melihat data.</div>';
+    htmlTamu += '</div>';
+    $('#main').innerHTML = htmlTamu;
+    return;
+  }
+
   var ks = kelasSaya();
   function inKelas(r){ return ks.length === 0 ? true : ks.indexOf(r.Kelas) >= 0; }
   var tglHariIni = today();
@@ -2057,65 +2121,97 @@ function renderDashboard(){
     var sakit = hadir.filter(function(r){ return r.Status === 'S'; }).length;
     var izinSiswa = hadir.filter(function(r){ return r.Status === 'I'; }).length;
     var alpa = hadir.filter(function(r){ return r.Status === 'A'; }).length;
+
+    /* ===== CEK LIST KELAS SUDAH PRESENSI (hanya untuk Guru BK / admin, bukan Guru Piket) ===== */
+    var ksAll = ks.slice().sort();
+    var checkedMap = {};
+    hadirAll.forEach(function(r){
+      if(String(r.Tanggal) === tglHariIni && r.Kelas) checkedMap[r.Kelas] = true;
+    });
+    var sudahN = ksAll.filter(function(k){ return !!checkedMap[k]; }).length;
+
     var html = '';
-    html += '<div class="card" style="background:linear-gradient(135deg,#0f4c81,#1a73e8);color:#fff;border:none;text-align:center">';
-    html += '<div style="font-size:12px;opacity:.85;letter-spacing:.5px;text-transform:uppercase">'+
-      esc(ST.user.role==='admin'?'Administrator':ST.user.role==='gurubk'?'Guru BK'+(ST.guru?' — '+ST.guru.Nama:''):ST.user.role==='gurupiket'?'Guru Piket'+(ST.guru?' — '+ST.guru.Nama:''):'Tamu')+'</div>';
-    html += '<div style="font-size:18px;font-weight:700;margin-top:6px">'+tglPanjang(tglHariIni)+'</div>';
-    html += '</div>';
-    if(isPiket){
-      html += '<div class="stat">'+
-        '<div class="sc y"><div class="n">'+izin.length+'</div><div class="l">Siswa Izin Keluar Hari Ini</div></div>'+
-        '<div class="sc r"><div class="n">'+telat.length+'</div><div class="l">Siswa Terlambat Hari Ini</div></div>'+
-        '<div class="sc p"><div class="n">'+belumKembali.length+'</div><div class="l">Izin Belum Kembali</div></div>'+
-      '</div>';
-    } else {
-      html += '<div class="stat">'+
-        '<div class="sc y"><div class="n">'+izin.length+'</div><div class="l">Siswa Izin Keluar Hari Ini</div></div>'+
-        '<div class="sc r"><div class="n">'+telat.length+'</div><div class="l">Siswa Terlambat Hari Ini</div></div>'+
-        '<div class="sc" style="border-left-color:#b9770e"><div class="n">'+sakit+'</div><div class="l">Siswa Sakit</div></div>'+
-        '<div class="sc b"><div class="n">'+izinSiswa+'</div><div class="l">Siswa Izin</div></div>'+
-        '<div class="sc" style="border-left-color:#c0392b"><div class="n">'+alpa+'</div><div class="l">Siswa Alpa</div></div>'+
-        '<div class="sc p"><div class="n">'+belumKembali.length+'</div><div class="l">Izin Belum Kembali</div></div>'+
-      '</div>';
-    }
-    if(!isTamu){
-      html += '<div class="card" style="border-left:4px solid '+(belumKembali.length?'#f39c12':'#27ae60')+'">';
-      html += '<h2>🚪 Siswa Izin Keluar — Belum Kembali</h2>';
-      html += '<div class="sub">'+belumKembali.length+' siswa belum konfirmasi kembali</div>';
-      if(belumKembali.length){
-        html += '<div class="tw"><table><thead><tr><th>Tanggal</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>Jam Keluar</th><th>Alasan</th><th style="width:140px">Aksi</th></tr></thead><tbody>';
-        belumKembali.slice(0, 30).forEach(function(r){
-          html += '<tr>'+
-            '<td>'+tgl(r.Tanggal)+'</td>'+
-            '<td>'+esc(r.NIS)+'</td>'+
-            '<td><b>'+esc(r.Nama)+'</b></td>'+
-            '<td>'+esc(r.Kelas)+'</td>'+
-            '<td>'+esc(r.JamKeluar||'-')+'</td>'+
-            '<td>'+esc((r.Alasan||'').slice(0,40))+'</td>'+
-            '<td><button class="btn4 btn-sm" onclick="konfirmasiKembali(\''+r.ID+'\')">✔ Kembali</button></td>'+
-          '</tr>';
+
+    /* Header compact */
+    var roleLabel = ST.user.role==='admin'?'Administrator':ST.user.role==='gurubk'?'Guru BK'+(ST.guru?' — '+ST.guru.Nama:''):ST.user.role==='gurupiket'?'Guru Piket'+(ST.guru?' — '+ST.guru.Nama:''):'Tamu';
+    html += '<div class="dash-head"><div class="who">'+esc(roleLabel)+'</div><div class="d">'+tglPanjang(tglHariIni)+'</div></div>';
+
+    /* Cek list presensi kelas — HANYA untuk Guru BK / Admin (bukan Guru Piket) */
+    if(!isPiket){
+      html += '<div class="dash-card">';
+      html += '<h2>📋 Cek List Presensi Kelas Hari Ini</h2>';
+      html += '<div class="sub">'+sudahN+' / '+ksAll.length+' kelas sudah presensi — klik kelas untuk input / edit</div>';
+      html += '<div class="presensi-checklist">';
+      if(ksAll.length){
+        ksAll.forEach(function(k){
+          var ok = !!checkedMap[k];
+          html += '<span class="presensi-chip '+(ok?'done':'pending')+'" onclick="dashInputPresensi(\''+esc(k)+'\')" title="'+(ok?'Klik untuk edit presensi':'Klik untuk input presensi')+'">'+esc(k)+' <span class="mark">'+(ok?'✓':'—')+'</span></span>';
         });
-        html += '</tbody></table></div>';
-        if(belumKembali.length > 30) html += '<div class="hint" style="margin-top:9px">Menampilkan 30 dari '+belumKembali.length+' data.</div>';
       } else {
-        html += '<div class="empty">Tidak ada siswa yang belum kembali. 👍</div>';
+        html += '<span class="hint">Belum ada kelas.</span>';
       }
-      html += '</div>';
+      html += '</div></div>';
     }
+
+    /* Statistik compact */
+    html += '<div class="dash-stats">';
+    html += '<div class="dash-stat y"><div class="n">'+izin.length+'</div><div class="l">Izin Keluar<br>Hari Ini</div></div>';
+    html += '<div class="dash-stat r"><div class="n">'+telat.length+'</div><div class="l">Terlambat<br>Hari Ini</div></div>';
+    if(!isPiket){
+      html += '<div class="dash-stat" style="border-left-color:#b9770e"><div class="n">'+sakit+'</div><div class="l">Siswa<br>Sakit</div></div>';
+      html += '<div class="dash-stat b"><div class="n">'+izinSiswa+'</div><div class="l">Siswa<br>Izin</div></div>';
+      html += '<div class="dash-stat r"><div class="n">'+alpa+'</div><div class="l">Siswa<br>Alpa</div></div>';
+    }
+    html += '<div class="dash-stat p"><div class="n">'+belumKembali.length+'</div><div class="l">Izin Belum<br>Kembali</div></div>';
+    html += '</div>';
+
+    /* Belum kembali section */
+    html += '<div class="dash-card" style="border-left:4px solid '+(belumKembali.length?'#f39c12':'#27ae60')+'">';
+    html += '<h2>🚪 Izin Keluar — Belum Kembali</h2>';
+    html += '<div class="sub">'+belumKembali.length+' siswa belum konfirmasi kembali</div>';
+    if(belumKembali.length){
+      html += '<div class="tw dash-list"><table><thead><tr><th>Nama</th><th>Kelas</th><th>Jam</th><th>Alasan</th><th style="width:120px">Aksi</th></tr></thead><tbody>';
+      belumKembali.slice(0, 20).forEach(function(r){
+        html += '<tr>'+
+          '<td><b>'+esc(r.Nama)+'</b><br><span class="small">'+esc(r.NIS)+'</span></td>'+
+          '<td>'+esc(r.Kelas)+'</td>'+
+          '<td>'+esc(r.JamKeluar||'-')+'</td>'+
+          '<td>'+esc((r.Alasan||'').slice(0,30))+'</td>'+
+          '<td><button class="btn4 btn-sm" onclick="konfirmasiKembali(\''+r.ID+'\')">✔ Kembali</button></td>'+
+        '</tr>';
+      });
+      html += '</tbody></table></div>';
+      if(belumKembali.length > 20) html += '<div class="hint" style="margin-top:6px">Menampilkan 20 dari '+belumKembali.length+' data.</div>';
+    } else {
+      html += '<div class="empty" style="padding:18px">Tidak ada siswa yang belum kembali. 👍</div>';
+    }
+    html += '</div>';
+
+    /* Jurnal hari ini — hanya Guru BK */
     if(isGuruBK && jurnalHariIni.length && !isHariLibur(tglHariIni)){
-      html += '<div class="card" style="border-left:4px solid #27ae60">';
+      html += '<div class="dash-card" style="border-left:4px solid #27ae60">';
       html += '<h2>📔 Jurnal Harian Hari Ini</h2>';
       html += '<div class="sub">'+jurnalHariIni.length+' kegiatan tercatat</div>';
-      html += '<div class="jurnal-card">';
-      jurnalHariIni.slice(0, 5).forEach(function(j){
-        html += '<div class="jurnal-auto"><b>'+esc((j.Kegiatan||'').slice(0,80))+'</b>'+(j.Keterangan?' — '+esc(j.Keterangan):'')+'</div>';
+      jurnalHariIni.slice(0, 4).forEach(function(j){
+        html += '<div class="jurnal-auto" style="padding:8px 10px;margin-bottom:6px"><b>'+esc((j.Kegiatan||'').slice(0,80))+'</b>'+(j.Keterangan?' — '+esc(j.Keterangan):'')+'</div>';
       });
-      if(jurnalHariIni.length > 5) html += '<div class="hint">dan '+(jurnalHariIni.length-5)+' kegiatan lainnya…</div>';
-      html += '</div>';
-      html += '<button class="btn2 btn-sm" onclick="go(\'jurnal\')">Lihat Semua Jurnal</button>';
+      if(jurnalHariIni.length > 4) html += '<div class="hint">dan '+(jurnalHariIni.length-4)+' kegiatan lainnya…</div>';
+      html += '<button class="btn2 btn-sm" style="margin-top:8px" onclick="go(\'jurnal\')">Lihat Semua Jurnal</button>';
       html += '</div>';
     }
+
+    /* FAB - tombol mengambang di dashboard
+       - Guru BK & Admin: Jurnal Harian + Input Presensi
+       - Guru Piket: TIDAK ada tombol Input Presensi (hanya Jurnal tidak ada juga, karena piket tidak akses jurnal)
+    */
+    html += '<div class="dash-fab">';
+    if(isGuruBK || ST.user.role === 'admin'){
+      html += '<button class="fab jurnal" onclick="dashInputJurnal()">📔 Jurnal Harian</button>';
+      html += '<button class="fab" onclick="dashInputPresensi()">📋 Input Presensi</button>';
+    }
+    /* Guru Piket: tidak ada FAB sama sekali */
+    html += '</div>';
+
     $('#main').innerHTML = html;
   }).catch(function(e){ $('#main').innerHTML = '<div class="card"><div class="empty">Gagal memuat: '+esc(e.message)+'</div></div>'; });
 }
@@ -3219,14 +3315,16 @@ function simpanJurnal(id){
   api('saveRecord', { sheet: SH.JURNAL, data: d }).then(function(){
     closeModal(); toast('Catatan jurnal disimpan');
     invalidateCache('jurnal_view');
-    filterJurnal();
+    if(ST.page === 'dashboard') renderDashboard();
+    else filterJurnal();
   }).catch(function(e){ toast(e.message,'er'); });
 }
 function hapusJurnal(id){
   confirmBox('Hapus catatan jurnal ini?', function(){
     api('deleteRecord', { sheet: SH.JURNAL, id: id }).then(function(){
       toast('Dihapus');
-      filterJurnal();
+      if(ST.page === 'dashboard') renderDashboard();
+      else filterJurnal();
     }).catch(function(e){ toast(e.message,'er'); });
   });
 }
@@ -3654,7 +3752,9 @@ function simpanKehadiran(){
       _hadirLoading = {};
       closeModal();
       toast(rows.length + ' data ' + (isEdit ? 'diperbarui' : 'disimpan'));
-      renderKehadiran();
+      // langsung update cek list dashboard
+      if(ST.page === 'dashboard') renderDashboard();
+      else renderKehadiran();
     }).catch(function(e){ toast(e.message,'er'); });
   };
   if(isEdit) confirmBox('Ganti data presensi lama untuk '+kelas+' tanggal '+tglV+'?', doSave);
@@ -4209,7 +4309,6 @@ var REPORT_MENU_ALL = [
 ];
 function renderReport(){
   var isTamu = (ST.user.role === 'tamu');
-  // Guest (tamu) tidak boleh melihat opsi "Laporan"
   var REPORT_MENU = isTamu
     ? REPORT_MENU_ALL.filter(function(m){ return m.id !== 'laporan_makalah'; })
     : REPORT_MENU_ALL;
@@ -4299,7 +4398,7 @@ function renderLaporanMakalah(all, p){
   var html = buildLaporanMakalah(all, p);
   var vEl = $('#rpView');
   if(!vEl) return;
-  vEl.innerHTML = '<div class="notif info" style="margin-bottom:10px">📄 Laporan lengkap dengan sistematika makalah (Cover, BAB I–V, tanda tangan). Klik <b>Cetak Laporan</b> untuk mencetak / simpan sebagai PDF.</div>'+
+  vEl.innerHTML = '<div class="notif info" style="margin-bottom:10px">📄 Laporan lengkap dengan sistematika makalah (Cover, Kata Pengantar, Daftar Isi, BAB I–V, tanda tangan). Klik <b>Cetak Laporan</b> untuk mencetak / simpan sebagai PDF.</div>'+
     '<div class="makalah-wrapper"><div class="makalah">'+html+'</div></div>';
   ST.cache.mkReport = { html:html, sub:p.label };
   $('#rpAksi').innerHTML = '<button class="btn" onclick="cetakLaporanMakalah()">🖨 Cetak Laporan</button>';
@@ -4337,7 +4436,7 @@ function buildLaporanMakalah(all, p){
 
   var html = '';
 
-  // COVER (Logo sekolah menggantikan kop; tanpa tulisan "LAPORAN PELAKSANAAN LAYANAN BK")
+  /* ===== COVER ===== */
   html += '<div class="cover-page">';
   html += '<div class="cover-logo"><img src="'+LOGO_URL+'" alt="Logo Sekolah" onerror="this.style.display=\'none\'"></div>';
   html += '<h1>LAPORAN KEGIATAN<br>BIMBINGAN DAN KONSELING<br>'+esc(sekolah)+'</h1>';
@@ -4347,7 +4446,75 @@ function buildLaporanMakalah(all, p){
   html += '<div style="margin-top:70px;font-size:14px;font-weight:bold">'+esc(sekolah)+'<br>TAHUN PELAJARAN 2026/2027</div>';
   html += '</div>';
 
-  // BAB I
+  /* ===== KATA PENGANTAR ===== */
+  html += '<div class="page-break"></div>';
+  html += '<h2 class="bab-title">KATA PENGANTAR</h2>';
+  html += '<p>Puji syukur kami panjatkan ke hadirat Allah SWT, Tuhan Yang Maha Esa, atas limpahan rahmat, taufik, dan hidayah-Nya sehingga penyusunan Laporan Kegiatan Bimbingan dan Konseling di '+esc(sekolah)+' untuk periode <b>'+esc(p.label)+'</b> ini dapat diselesaikan dengan baik dan tepat waktu.</p>';
+  html += '<p>Laporan ini disusun sebagai bentuk pertanggungjawaban profesional Guru Bimbingan dan Konseling dalam melaksanakan tugas pokok dan fungsi layanan bantuan kepada peserta didik. Laporan memuat berbagai kegiatan layanan yang telah dilaksanakan, data kedisiplinan dan presensi siswa, serta hasil evaluasi yang telah dicapai selama periode tersebut.</p>';
+  html += '<p>Kami menyampaikan terima kasih yang sebesar-besarnya kepada:</p>';
+  html += '<ol>';
+  html += '<li>'+esc(kepsek)+', Kepala '+esc(sekolah)+', atas dukungan, arahan, dan kebijakan yang mendukung pelaksanaan layanan Bimbingan dan Konseling.</li>';
+  html += '<li>Wakil Kepala Sekolah beserta seluruh tenaga pendidik dan tenaga kependidikan atas kerja sama dan dukungannya.</li>';
+  html += '<li>Wali kelas dan guru mata pelajaran yang telah membantu kelancaran pelaksanaan layanan BK.</li>';
+  html += '<li>Orang tua / wali peserta didik yang telah memberikan dukungan terhadap program sekolah.</li>';
+  html += '<li>Seluruh peserta didik yang telah berpartisipasi aktif dalam kegiatan layanan BK.</li>';
+  html += '</ol>';
+  html += '<p>Kami menyadari bahwa laporan ini masih jauh dari sempurna. Kritik dan saran yang membangun sangat kami harapkan demi perbaikan penyusunan laporan pada periode berikutnya. Semoga laporan ini bermanfaat bagi semua pihak yang memerlukannya.</p>';
+  html += '<div style="margin-top:40px;display:flex;justify-content:flex-end">';
+  html += '<div style="text-align:center;min-width:250px">';
+  html += '<div>Klirong, '+new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})+'</div>';
+  html += '<div>Guru Bimbingan dan Konseling</div>';
+  html += '<div style="height:70px;padding-top:6px">'+(getGuruBKTTD()?'<img src="'+esc(getGuruBKTTD())+'" style="max-height:60px;max-width:180px;object-fit:contain">':'')+'</div>';
+  html += '<div style="font-weight:bold;text-decoration:underline">'+esc(guruNama)+'</div>';
+  html += '<div>NIP. '+esc(guruNIP)+'</div>';
+  html += '</div></div>';
+
+  /* ===== DAFTAR ISI ===== */
+  html += '<div class="page-break"></div>';
+  html += '<h2 class="bab-title">DAFTAR ISI</h2>';
+  html += '<table class="toc-table">';
+  function tocRow(label, page, cls){ return '<tr'+(cls?' class="'+cls+'"':'')+'><td>'+label+'</td><td>'+page+'</td></tr>'; }
+  html += tocRow('Halaman Judul', 'i');
+  html += tocRow('Kata Pengantar', 'ii');
+  html += tocRow('Daftar Isi', 'iii');
+  html += tocRow('BAB I PENDAHULUAN', '1', 'toc-bab');
+  html += tocRow('A. Latar Belakang', '1', 'toc-sub');
+  html += tocRow('B. Dasar Pelaksanaan', '2', 'toc-sub');
+  html += tocRow('C. Tujuan Penyusunan Laporan', '2', 'toc-sub');
+  html += tocRow('D. Ruang Lingkup', '3', 'toc-sub');
+  html += tocRow('E. Sasaran Layanan', '3', 'toc-sub');
+  html += tocRow('BAB II PROGRAM DAN PELAKSANAAN LAYANAN BIMBINGAN DAN KONSELING', '4', 'toc-bab');
+  html += tocRow('A. Rekapitulasi Pelaksanaan Kegiatan', '4', 'toc-sub');
+  html += tocRow('B. Bimbingan Klasikal', '5', 'toc-sub');
+  html += tocRow('C. Bimbingan Kelompok', '5', 'toc-sub');
+  html += tocRow('D. Konseling Individual', '6', 'toc-sub');
+  html += tocRow('E. Kunjungan Rumah (Home Visit)', '6', 'toc-sub');
+  html += tocRow('F. Pemanggilan Orang Tua / Wali', '7', 'toc-sub');
+  html += tocRow('G. Catatan Kasus', '7', 'toc-sub');
+  html += tocRow('H. Konferensi Kasus', '8', 'toc-sub');
+  html += tocRow('I. Alih Tangan Kasus', '8', 'toc-sub');
+  html += tocRow('J. Catatan Anekdot', '9', 'toc-sub');
+  html += tocRow('K. Kegiatan Lain-lain', '9', 'toc-sub');
+  html += tocRow('BAB III DATA KEDISIPLINAN DAN PRESENSI SISWA', '10', 'toc-bab');
+  html += tocRow('A. Perizinan Keluar Sekolah', '10', 'toc-sub');
+  html += tocRow('B. Keterlambatan Siswa', '10', 'toc-sub');
+  html += tocRow('C. Presensi Siswa', '11', 'toc-sub');
+  html += tocRow('BAB IV HASIL DAN PEMBAHASAN', '12', 'toc-bab');
+  html += tocRow('A. Capaian Pelaksanaan Program', '12', 'toc-sub');
+  html += tocRow('B. Analisis Pelaksanaan', '13', 'toc-sub');
+  html += tocRow('C. Faktor Pendukung dan Penghambat', '14', 'toc-sub');
+  html += tocRow('D. Evaluasi Ketercapaian Program', '15', 'toc-sub');
+  html += tocRow('E. Refleksi Pelaksanaan Layanan', '16', 'toc-sub');
+  html += tocRow('F. Dampak Layanan terhadap Peserta Didik', '16', 'toc-sub');
+  html += tocRow('BAB V PENUTUP', '17', 'toc-bab');
+  html += tocRow('A. Kesimpulan', '17', 'toc-sub');
+  html += tocRow('B. Saran', '17', 'toc-sub');
+  html += tocRow('C. Rencana Tindak Lanjut', '18', 'toc-sub');
+  html += tocRow('D. Penutup', '18', 'toc-sub');
+  html += tocRow('Lampiran-lampiran', '19', 'toc-bab');
+  html += '</table>';
+
+  /* ===== BAB I ===== */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB I<br>PENDAHULUAN</h2>';
   html += '<h3>A. Latar Belakang</h3>';
@@ -4393,7 +4560,7 @@ function buildLaporanMakalah(all, p){
   else html += '<tr><th colspan="2" style="text-align:right">Total</th><th>'+totalSiswaAmpu+' siswa</th></tr>';
   html += '</tbody></table>';
 
-  // BAB II
+  /* ===== BAB II ===== */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB II<br>PROGRAM DAN PELAKSANAAN LAYANAN<br>BIMBINGAN DAN KONSELING</h2>';
   html += '<h3>A. Rekapitulasi Pelaksanaan Kegiatan</h3>';
@@ -4538,7 +4705,7 @@ function buildLaporanMakalah(all, p){
     html += '<p>Tidak terdapat kegiatan lain-lain pada periode ini.</p>';
   }
 
-  // BAB III
+  /* ===== BAB III ===== */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB III<br>DATA KEDISIPLINAN DAN PRESENSI SISWA</h2>';
   html += '<h3>A. Perizinan Keluar Sekolah</h3>';
@@ -4577,32 +4744,37 @@ function buildLaporanMakalah(all, p){
   html += '<tr><th colspan="2" style="text-align:right">Total Entri</th><th style="text-align:center">'+(hadirAgg.H+hadirAgg.S+hadirAgg.I+hadirAgg.A)+'</th></tr>';
   html += '</tbody></table>';
 
-  // BAB IV
+  /* ===== BAB IV (EXPANDED) ===== */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB IV<br>HASIL DAN PEMBAHASAN</h2>';
+
   html += '<h3>A. Capaian Pelaksanaan Program</h3>';
   html += '<p>Berdasarkan data yang telah diuraikan pada bab sebelumnya, secara umum pelaksanaan layanan bimbingan dan konseling pada periode '+esc(p.label)+' telah berjalan sesuai dengan program yang telah disusun. Total kegiatan yang telah dilaksanakan sebanyak <b>'+totalKegiatan+'</b> kegiatan, dengan rincian sebagai berikut:</p>';
   html += '<ul>';
-  if(klasikal.length) html += '<li>Bimbingan Klasikal: <b>'+klasikal.length+'</b> kali pertemuan.</li>';
+  if(klasikal.length) html += '<li>Bimbingan Klasikal: <b>'+klasikal.length+'</b> kali pertemuan dengan cakupan '+kelasSaya().length+' kelas.</li>';
   if(kelompok.length) html += '<li>Bimbingan Kelompok: <b>'+kelompok.length+'</b> kali kegiatan.</li>';
-  if(konseling.length) html += '<li>Konseling Individual: <b>'+konseling.length+'</b> sesi.</li>';
-  if(kr.length) html += '<li>Home Visit: <b>'+kr.length+'</b> kunjungan.</li>';
-  if(panggilan.length) html += '<li>Pemanggilan Orang Tua: <b>'+panggilan.length+'</b> kali.</li>';
-  if(kasus.length) html += '<li>Catatan Kasus: <b>'+kasus.length+'</b> kasus tercatat.</li>';
-  if(konferensi.length) html += '<li>Konferensi Kasus: <b>'+konferensi.length+'</b> kali.</li>';
-  if(alihtangan.length) html += '<li>Alih Tangan Kasus: <b>'+alihtangan.length+'</b> kasus.</li>';
-  if(anekdot.length) html += '<li>Catatan Anekdot: <b>'+anekdot.length+'</b> catatan.</li>';
-  if(lainlain.length) html += '<li>Kegiatan Lain-lain: <b>'+lainlain.length+'</b> kegiatan.</li>';
+  if(konseling.length) html += '<li>Konseling Individual: <b>'+konseling.length+'</b> sesi dengan siswa penerima layanan.</li>';
+  if(kr.length) html += '<li>Home Visit: <b>'+kr.length+'</b> kunjungan ke rumah siswa.</li>';
+  if(panggilan.length) html += '<li>Pemanggilan Orang Tua: <b>'+panggilan.length+'</b> kali pertemuan dengan orang tua / wali.</li>';
+  if(kasus.length) html += '<li>Catatan Kasus: <b>'+kasus.length+'</b> kasus yang tercatat dan ditangani.</li>';
+  if(konferensi.length) html += '<li>Konferensi Kasus: <b>'+konferensi.length+'</b> kali konferensi bersama pihak terkait.</li>';
+  if(alihtangan.length) html += '<li>Alih Tangan Kasus: <b>'+alihtangan.length+'</b> kasus dialihkan ke pihak yang berwenang.</li>';
+  if(anekdot.length) html += '<li>Catatan Anekdot: <b>'+anekdot.length+'</b> catatan kejadian khusus siswa.</li>';
+  if(lainlain.length) html += '<li>Kegiatan Lain-lain: <b>'+lainlain.length+'</b> kegiatan pendukung.</li>';
   if(!totalKegiatan) html += '<li>Belum ada kegiatan tercatat pada periode ini.</li>';
   html += '</ul>';
+  html += '<p>Capaian ini menunjukkan bahwa program bimbingan dan konseling telah dilaksanakan sesuai dengan rencana, meskipun masih terdapat beberapa kegiatan yang perlu ditingkatkan intensitas dan cakupannya pada periode berikutnya.</p>';
+
   html += '<h3>B. Analisis Pelaksanaan</h3>';
   html += '<p>Dari seluruh kegiatan yang telah dilaksanakan, dapat dianalisis beberapa hal sebagai berikut:</p>';
   html += '<ol>';
-  html += '<li><b>Ketercapaian layanan dasar:</b> Layanan bimbingan klasikal dan kelompok sebagai layanan dasar telah dilaksanakan'+(klasikal.length?' dengan '+klasikal.length+' sesi klasikal':'')+(kelompok.length?' dan '+kelompok.length+' sesi kelompok':'')+'. Layanan ini menjadi fondasi pencegahan dan pengembangan bagi seluruh peserta didik.</li>';
-  html += '<li><b>Penanganan kasus individual:</b> Terdapat '+(konseling.length + kr.length + panggilan.length + kasus.length + konferensi.length + alihtangan.length)+' kegiatan yang bersifat responsif untuk menangani permasalahan siswa secara individual, mulai dari konseling, home visit, pemanggilan orang tua, hingga konferensi kasus dan alih tangan kasus.</li>';
-  html += '<li><b>Data kedisiplinan:</b> Tercatat '+izin.length+' perizinan keluar dan '+telat.length+' kejadian keterlambatan. Data ini menjadi perhatian untuk pembinaan kedisiplinan pada periode berikutnya.</li>';
-  html += '<li><b>Presensi:</b> Dari total '+(hadirAgg.H+hadirAgg.S+hadirAgg.I+hadirAgg.A)+' entri presensi, tercatat '+hadirAgg.S+' sakit, '+hadirAgg.I+' izin, dan '+hadirAgg.A+' alpa. Angka alpa menjadi fokus perhatian untuk ditindaklanjuti.</li>';
+  html += '<li><b>Ketercapaian layanan dasar:</b> Layanan bimbingan klasikal dan kelompok sebagai layanan dasar telah dilaksanakan'+(klasikal.length?' dengan '+klasikal.length+' sesi klasikal':'')+(kelompok.length?' dan '+kelompok.length+' sesi kelompok':'')+'. Layanan ini menjadi fondasi pencegahan dan pengembangan bagi seluruh peserta didik. Rasio antara jumlah kelas dan frekuensi layanan klasikal menjadi indikator keterjangkauan layanan.</li>';
+  html += '<li><b>Penanganan kasus individual:</b> Terdapat '+(konseling.length + kr.length + panggilan.length + kasus.length + konferensi.length + alihtangan.length)+' kegiatan yang bersifat responsif untuk menangani permasalahan siswa secara individual, mulai dari konseling, home visit, pemanggilan orang tua, hingga konferensi kasus dan alih tangan kasus. Tingginya angka kegiatan responsif mengindikasikan bahwa siswa merasa nyaman untuk berkonsultasi dengan Guru BK.</li>';
+  html += '<li><b>Data kedisiplinan:</b> Tercatat '+izin.length+' perizinan keluar dan '+telat.length+' kejadian keterlambatan. Data ini menjadi perhatian untuk pembinaan kedisiplinan pada periode berikutnya, khususnya bagi siswa dengan frekuensi tertinggi.</li>';
+  html += '<li><b>Presensi:</b> Dari total '+(hadirAgg.H+hadirAgg.S+hadirAgg.I+hadirAgg.A)+' entri presensi, tercatat '+hadirAgg.S+' sakit, '+hadirAgg.I+' izin, dan '+hadirAgg.A+' alpa. Angka alpa menjadi fokus perhatian untuk ditindaklanjuti melalui koordinasi dengan wali kelas dan orang tua / wali siswa.</li>';
+  html += '<li><b>Keseimbangan layanan:</b> Perbandingan antara layanan preventif (klasikal, kelompok) dan layanan responsif (konseling, home visit) perlu dijaga keseimbangannya. Idealnya, porsi layanan preventif lebih besar untuk menekan angka permasalahan siswa.</li>';
   html += '</ol>';
+
   html += '<h3>C. Faktor Pendukung dan Penghambat</h3>';
   html += '<p><b>Faktor Pendukung:</b></p>';
   html += '<ul>';
@@ -4610,41 +4782,117 @@ function buildLaporanMakalah(all, p){
   html += '<li>Ketersediaan sarana dan prasarana yang memadai untuk pelaksanaan layanan.</li>';
   html += '<li>Kerja sama yang baik antara Guru BK, wali kelas, dan orang tua / wali siswa.</li>';
   html += '<li>Antusiasme dan keterbukaan peserta didik dalam mengikuti layanan bimbingan dan konseling.</li>';
+  html += '<li>Dukungan teknologi informasi yang memudahkan pendokumentasian dan pelaporan layanan.</li>';
   html += '</ul>';
   html += '<p><b>Faktor Penghambat:</b></p>';
   html += '<ul>';
   html += '<li>Keterbatasan waktu karena padatnya jadwal kegiatan belajar mengajar.</li>';
   html += '<li>Beberapa siswa masih merasa enggan untuk berkonsultasi secara langsung.</li>';
   html += '<li>Keterbatasan jumlah Guru BK dibandingkan jumlah peserta didik yang harus dilayani.</li>';
+  html += '<li>Keterbatasan ruang konseling yang representatif untuk menjaga privasi peserta didik.</li>';
+  html += '<li>Kurangnya pemahaman sebagian siswa tentang peran dan fungsi layanan BK.</li>';
   html += '</ul>';
 
-  // BAB V
+  html += '<h3>D. Evaluasi Ketercapaian Program</h3>';
+  html += '<p>Evaluasi ketercapaian program dilakukan dengan membandingkan antara rencana program dengan realisasi pelaksanaan layanan. Adapun hasil evaluasi dapat dijabarkan sebagai berikut:</p>';
+  html += '<ol>';
+  html += '<li><b>Layanan Dasar (Bimbingan Klasikal dan Kelompok):</b> Ketercapaian '+((klasikal.length + kelompok.length) > 0 ? 'terlaksana' : 'belum terlaksana')+' dengan total '+((klasikal.length + kelompok.length))+' kegiatan. Layanan dasar ini perlu terus ditingkatkan agar setiap kelas dapat menerima layanan secara rutin dan terjadwal.</li>';
+  html += '<li><b>Layanan Responsif (Konseling, Home Visit, Pemanggilan OT):</b> Terlaksana dengan total '+((konseling.length + kr.length + panggilan.length))+' kegiatan. Layanan ini telah merespons kebutuhan peserta didik secara cepat dan tepat.</li>';
+  html += '<li><b>Layanan Perencanaan Individual dan Dukungan Sistem:</b> Terlaksana melalui kegiatan catatan anekdot, konferensi kasus, alih tangan kasus, dan kegiatan lain-lain dengan total '+((anekdot.length + konferensi.length + alihtangan.length + lainlain.length))+' kegiatan.</li>';
+  html += '<li><b>Keterjangkauan Layanan:</b> Dari '+kelasSaya().length+' kelas yang menjadi tanggung jawab Guru BK'+(kelasSaya().length?' dengan total '+totalSiswaAmpu+' siswa':'')+', seluruhnya telah menerima layanan bimbingan dan konseling sesuai dengan kebutuhannya.</li>';
+  html += '</ol>';
+  html += '<p>Secara keseluruhan, tingkat ketercapaian program layanan BK pada periode ini berada pada kategori '+(totalKegiatan >= 20 ? 'sangat baik' : totalKegiatan >= 10 ? 'baik' : totalKegiatan >= 5 ? 'cukup' : 'perlu ditingkatkan')+'. Evaluasi ini menjadi acuan untuk penyusunan program pada periode berikutnya.</p>';
+
+  html += '<h3>E. Refleksi Pelaksanaan Layanan</h3>';
+  html += '<p>Refleksi merupakan bagian penting dari siklus perbaikan berkelanjutan. Adapun refleksi atas pelaksanaan layanan bimbingan dan konseling pada periode '+esc(p.label)+' adalah sebagai berikut:</p>';
+  html += '<ol>';
+  html += '<li><b>Kekuatan (Strengths):</b> Konsistensi Guru BK dalam melaksanakan layanan sesuai jadwal, responsif terhadap permasalahan peserta didik, serta dokumentasi yang rapi dan sistematis.</li>';
+  html += '<li><b>Kelemahan (Weaknesses):</b> Masih terbatasnya cakupan layanan klasikal untuk seluruh kelas, kurangnya pemanfaatan media interaktif dalam layanan, serta keterbatasan waktu untuk konseling individual yang mendalam.</li>';
+  html += '<li><b>Peluang (Opportunities):</b> Dukungan sekolah terhadap pengembangan program BK, kemajuan teknologi yang dapat dimanfaatkan untuk layanan daring, serta partisipasi orang tua yang cukup baik.</li>';
+  html += '<li><b>Ancaman (Threats):</b> Pengaruh negatif lingkungan luar sekolah, peningkatan kasus penggunaan gadget berlebihan, serta tingkat ketidakhadiran siswa yang perlu diwaspadai.</li>';
+  html += '</ol>';
+  html += '<p>Refleksi ini menjadi dasar untuk perbaikan kualitas layanan bimbingan dan konseling pada periode berikutnya.</p>';
+
+  html += '<h3>F. Dampak Layanan terhadap Peserta Didik</h3>';
+  html += '<p>Layanan bimbingan dan konseling yang telah dilaksanakan diharapkan memberikan dampak positif bagi peserta didik, baik secara akademik maupun non-akademik. Adapun dampak yang dapat diidentifikasi antara lain:</p>';
+  html += '<ol>';
+  html += '<li><b>Dampak Akademik:</b> Membantu peserta didik dalam memahami gaya belajar, mengatasi kesulitan belajar, serta meningkatkan motivasi untuk meraih prestasi.</li>';
+  html += '<li><b>Dampak Sosial:</b> Meningkatkan kemampuan peserta didik dalam berkomunikasi, bekerja sama, dan menyelesaikan konflik secara positif dengan teman sebaya.</li>';
+  html += '<li><b>Dampak Pribadi:</b> Membantu peserta didik mengenali potensi diri, meningkatkan rasa percaya diri, dan mengembangkan kemampuan mengelola emosi.</li>';
+  html += '<li><b>Dampak Karier:</b> Memberikan pemahaman kepada peserta didik tentang pilihan karier dan studi lanjut sesuai minat dan bakatnya.</li>';
+  html += '<li><b>Dampak Kedisiplinan:</b> Adanya penurunan angka pelanggaran tata tertib bagi siswa yang telah menerima layanan responsif dari Guru BK.</li>';
+  html += '</ol>';
+  html += '<p>Dampak-dampak tersebut menunjukkan bahwa layanan bimbingan dan konseling memiliki kontribusi nyata dalam mendukung perkembangan holistik peserta didik.</p>';
+
+  /* ===== BAB V (EXPANDED) ===== */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB V<br>PENUTUP</h2>';
+
   html += '<h3>A. Kesimpulan</h3>';
+  html += '<p>Berdasarkan uraian pada bab-bab sebelumnya, dapat ditarik beberapa kesimpulan sebagai berikut:</p>';
   html += '<ol>';
-  html += '<li>Pelaksanaan layanan bimbingan dan konseling pada periode '+esc(p.label)+' telah berjalan sesuai program dengan total '+totalKegiatan+' kegiatan.</li>';
-  html += '<li>Layanan bimbingan klasikal, kelompok, dan konseling individual telah dilaksanakan secara terprogram dan berkesinambungan.</li>';
-  html += '<li>Penanganan kasus siswa dilakukan melalui berbagai pendekatan mulai dari konseling, home visit, pemanggilan orang tua, hingga konferensi kasus dan alih tangan kasus.</li>';
-  html += '<li>Data kedisiplinan dan presensi siswa menjadi bahan evaluasi untuk pembinaan pada periode berikutnya.</li>';
+  html += '<li>Pelaksanaan layanan bimbingan dan konseling pada periode '+esc(p.label)+' telah berjalan sesuai program dengan total <b>'+totalKegiatan+'</b> kegiatan yang mencakup layanan dasar, responsif, perencanaan individual, dan dukungan sistem.</li>';
+  html += '<li>Layanan bimbingan klasikal, kelompok, dan konseling individual telah dilaksanakan secara terprogram dan berkesinambungan sesuai dengan kebutuhan peserta didik.</li>';
+  html += '<li>Penanganan kasus siswa dilakukan melalui berbagai pendekatan mulai dari konseling, home visit, pemanggilan orang tua, konferensi kasus, hingga alih tangan kasus sesuai tingkat permasalahan siswa.</li>';
+  html += '<li>Data kedisiplinan dan presensi siswa menjadi bahan evaluasi untuk pembinaan pada periode berikutnya, khususnya bagi siswa dengan frekuensi izin, keterlambatan, dan alpa yang tinggi.</li>';
+  html += '<li>Evaluasi ketercapaian program menunjukkan tingkat ketercapaian pada kategori '+(totalKegiatan >= 20 ? 'sangat baik' : totalKegiatan >= 10 ? 'baik' : totalKegiatan >= 5 ? 'cukup' : 'perlu ditingkatkan')+', namun masih terdapat aspek yang perlu diperbaiki pada periode berikutnya.</li>';
+  html += '<li>Layanan bimbingan dan konseling memberikan dampak positif bagi peserta didik, baik dalam aspek akademik, sosial, pribadi, karier, maupun kedisiplinan.</li>';
   html += '</ol>';
+
   html += '<h3>B. Saran</h3>';
-  html += '<ol>';
-  html += '<li>Perlu peningkatan frekuensi layanan bimbingan klasikal untuk menjangkau seluruh peserta didik secara merata.</li>';
-  html += '<li>Perlu penguatan kerja sama dengan wali kelas dan orang tua dalam pembinaan kedisiplinan siswa.</li>';
-  html += '<li>Perlu pemanfaatan media dan teknologi dalam layanan BK agar lebih menarik minat peserta didik.</li>';
-  html += '<li>Perlu tindak lanjut sistematis untuk siswa dengan frekuensi izin, keterlambatan, dan alpa yang tinggi.</li>';
-  html += '</ol>';
-  html += '<h3>C. Rencana Tindak Lanjut</h3>';
-  html += '<p>Berdasarkan hasil evaluasi pada laporan ini, rencana tindak lanjut untuk periode berikutnya meliputi:</p>';
+  html += '<p>Berdasarkan kesimpulan di atas, beberapa saran yang dapat kami sampaikan kepada pihak-pihak terkait adalah sebagai berikut:</p>';
+  html += '<p><b>1. Untuk Kepala Sekolah:</b></p>';
   html += '<ul>';
-  html += '<li>Penyusunan program layanan yang lebih terarah sesuai kebutuhan peserta didik.</li>';
-  html += '<li>Peningkatan koordinasi dengan wali kelas dan pihak terkait.</li>';
-  html += '<li>Pelaksanaan asesmen kebutuhan layanan secara berkala.</li>';
-  html += '<li>Dokumentasi kegiatan yang lebih rapi dan sistematis.</li>';
+  html += '<li>Perlu penambahan jumlah Guru BK agar rasio Guru BK dengan peserta didik dapat memenuhi standar pelayanan.</li>';
+  html += '<li>Perlu penyediaan ruang konseling yang representatif dan menjaga privasi peserta didik.</li>';
+  html += '<li>Perlu dukungan kebijakan yang memfasilitasi pelaksanaan layanan BK secara lebih optimal.</li>';
+  html += '</ul>';
+  html += '<p><b>2. Untuk Guru Bimbingan dan Konseling:</b></p>';
+  html += '<ul>';
+  html += '<li>Perlu peningkatan frekuensi layanan bimbingan klasikal untuk menjangkau seluruh peserta didik secara merata.</li>';
+  html += '<li>Perlu pengembangan media dan metode layanan yang lebih variatif dan interaktif.</li>';
+  html += '<li>Perlu peningkatan kemampuan asesmen kebutuhan layanan secara berkala.</li>';
+  html += '<li>Perlu penguatan pendokumentasian dan pelaporan kegiatan layanan secara sistematis.</li>';
+  html += '</ul>';
+  html += '<p><b>3. Untuk Wali Kelas dan Guru Mata Pelajaran:</b></p>';
+  html += '<ul>';
+  html += '<li>Perlu peningkatan kerja sama dalam mengidentifikasi peserta didik yang membutuhkan layanan BK.</li>';
+  html += '<li>Perlu pelaporan segera kepada Guru BK apabila menemukan permasalahan peserta didik.</li>';
+  html += '<li>Perlu dukungan dalam pelaksanaan pembinaan kedisiplinan siswa di kelas masing-masing.</li>';
+  html += '</ul>';
+  html += '<p><b>4. Untuk Peserta Didik:</b></p>';
+  html += '<ul>';
+  html += '<li>Perlu memanfaatkan layanan BK secara proaktif untuk membantu mengatasi permasalahan belajar maupun pribadi.</li>';
+  html += '<li>Perlu berperan aktif dalam setiap kegiatan layanan bimbingan dan konseling.</li>';
+  html += '<li>Perlu menjaga perilaku dan kedisiplinan sesuai tata tertib sekolah.</li>';
+  html += '</ul>';
+  html += '<p><b>5. Untuk Orang Tua / Wali:</b></p>';
+  html += '<ul>';
+  html += '<li>Perlu mendukung program bimbingan dan konseling di sekolah.</li>';
+  html += '<li>Perlu menjalin komunikasi yang baik dengan pihak sekolah terkait perkembangan anak.</li>';
+  html += '<li>Perlu memberikan perhatian dan pendampingan kepada anak di rumah.</li>';
   html += '</ul>';
 
-  // Tanda tangan
+  html += '<h3>C. Rencana Tindak Lanjut</h3>';
+  html += '<p>Berdasarkan hasil evaluasi pada laporan ini, rencana tindak lanjut untuk periode berikutnya meliputi:</p>';
+  html += '<ol>';
+  html += '<li>Penyusunan program layanan yang lebih terarah dan sesuai dengan kebutuhan peserta didik berdasarkan hasil asesmen.</li>';
+  html += '<li>Peningkatan frekuensi dan kualitas layanan bimbingan klasikal untuk seluruh kelas.</li>';
+  html += '<li>Pengembangan media pembelajaran dan media layanan BK yang lebih variatif.</li>';
+  html += '<li>Peningkatan koordinasi dengan wali kelas, guru mata pelajaran, dan pihak terkait lainnya.</li>';
+  html += '<li>Pelaksanaan asesmen kebutuhan layanan secara berkala minimal satu kali per semester.</li>';
+  html += '<li>Peningkatan pemanfaatan teknologi informasi untuk pendokumentasian dan pelaporan layanan.</li>';
+  html += '<li>Pengembangan program pembinaan kedisiplinan siswa secara terpadu dengan wali kelas.</li>';
+  html += '<li>Penyelenggaraan kegiatan pengembangan diri siswa secara rutin dan terprogram.</li>';
+  html += '<li>Peningkatan kerja sama dengan orang tua / wali siswa melalui pertemuan berkala.</li>';
+  html += '<li>Pelaksanaan supervisi dan evaluasi program secara berkala untuk perbaikan berkelanjutan.</li>';
+  html += '</ol>';
+
+  html += '<h3>D. Penutup</h3>';
+  html += '<p>Demikian laporan kegiatan bimbingan dan konseling '+esc(sekolah)+' untuk periode <b>'+esc(p.label)+'</b> ini kami susun. Laporan ini diharapkan dapat menjadi bahan evaluasi, refleksi, dan referensi bagi semua pihak dalam upaya meningkatkan kualitas layanan bimbingan dan konseling di sekolah.</p>';
+  html += '<p>Kami menyadari bahwa laporan ini masih jauh dari sempurna. Oleh karena itu, kritik dan saran yang membangun sangat kami harapkan demi perbaikan pada penyusunan laporan periode berikutnya. Semoga laporan ini memberikan manfaat bagi pengembangan layanan bimbingan dan konseling dan bagi kemajuan pendidikan pada umumnya.</p>';
+
+  /* ===== TANDA TANGAN ===== */
   html += '<div style="margin-top:50px;display:flex;justify-content:space-between;page-break-inside:avoid">';
   html += '<div style="text-align:center">';
   html += '<div>Mengetahui,</div>';
@@ -4667,10 +4915,9 @@ function buildLaporanMakalah(all, p){
 function cetakLaporanMakalah(){
   var d = ST.cache.mkReport;
   if(!d || !d.html){ toast('Tampilkan dulu laporan','er'); return; }
-  var w = window.open('', '_blank'); 
+  var w = window.open('', '_blank');
   if(!w){ toast('Popup diblokir','er'); return; }
-  var css = '@page{size:A4;margin:2cm 2.5cm}body{font-family:"Times New Roman",serif;color:#000;font-size:12pt;line-height:1.7}h1{text-align:center;font-size:16pt;margin:24px 0}h2.bab-title{text-align:center;font-size:14pt;margin:26px 0 16px;font-weight:bold;page-break-after:avoid}h2{font-size:13.5pt;font-weight:bold;text-align:center;text-transform:uppercase;margin:22px 0 12px}h3{font-size:12.5pt;font-weight:bold;margin:14px 0 8px}table.rp{width:100%;border-collapse:collapse;font-size:10.5pt;margin:8px 0 14px}table.rp th,table.rp td{border:1px solid #333;padding:5px 7px;vertical-align:top;text-align:left}table.rp th{background:#e8eef7;font-weight:bold;text-align:center}p{text-align:justify;margin:6px 0;text-indent:0}ol,ul{margin:6px 0 10px 26px}ol li,ul li{margin-bottom:5px;text-align:justify}.cover-page{text-align:center;padding-top:30px;padding-bottom:30px;page-break-after:always}.cover-page .cover-logo{text-align:center;margin-bottom:14px}.cover-page .cover-logo img{max-height:130px;max-width:130px;object-fit:contain}.cover-page h1{font-size:17pt;margin:50px 0;line-height:1.4}.cover-page .cover-periode{font-size:13pt;font-weight:600;margin:24px 0}.cover-page .cover-identitas{font-size:14pt;font-weight:bold;margin-top:50px}.cover-page .cover-identitas p{margin:6px 0;text-align:center}.page-break{page-break-before:always}img{max-width:100%}';
-  // cetak laporan makalah — kop tidak dipakai lagi, logo sudah ada di cover page
+  var css = '@page{size:A4;margin:2cm 2.5cm}body{font-family:"Times New Roman",serif;color:#000;font-size:12pt;line-height:1.7}h1{text-align:center;font-size:16pt;margin:24px 0}h2.bab-title{text-align:center;font-size:14pt;margin:26px 0 16px;font-weight:bold;page-break-after:avoid}h2{font-size:13.5pt;font-weight:bold;text-align:center;text-transform:uppercase;margin:22px 0 12px}h3{font-size:12.5pt;font-weight:bold;margin:14px 0 8px}table.rp{width:100%;border-collapse:collapse;font-size:10.5pt;margin:8px 0 14px}table.rp th,table.rp td{border:1px solid #333;padding:5px 7px;vertical-align:top;text-align:left}table.rp th{background:#e8eef7;font-weight:bold;text-align:center}p{text-align:justify;margin:6px 0;text-indent:0}ol,ul{margin:6px 0 10px 26px}ol li,ul li{margin-bottom:5px;text-align:justify}.cover-page{text-align:center;padding-top:30px;padding-bottom:30px;page-break-after:always}.cover-page .cover-logo{text-align:center;margin-bottom:14px}.cover-page .cover-logo img{max-height:130px;max-width:130px;object-fit:contain}.cover-page h1{font-size:17pt;margin:50px 0;line-height:1.4}.cover-page .cover-periode{font-size:13pt;font-weight:600;margin:24px 0}.cover-page .cover-identitas{font-size:14pt;font-weight:bold;margin-top:50px}.cover-page .cover-identitas p{margin:6px 0;text-align:center}.page-break{page-break-before:always}img{max-width:100%}table.toc-table{border:none;width:100%}table.toc-table td{border:none;padding:3px 0;vertical-align:top}table.toc-table td:last-child{text-align:right;width:70px;font-weight:600}table.toc-table .toc-bab{font-weight:bold;padding-top:10px}table.toc-table .toc-sub{padding-left:24px}';
   var content = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Laporan BK</title><style>'+css+'</style></head><body>'+
     d.html +
     '<scr'+'ipt>setTimeout(function(){window.print();},700);</scr'+'ipt></body></html>';
