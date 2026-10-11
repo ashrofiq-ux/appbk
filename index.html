@@ -41,14 +41,15 @@ label{font-size:12px;font-weight:600;color:#5a6b7c;display:block;margin-bottom:5
 .top .who{font-size:12px;opacity:.9;display:flex;align-items:center;gap:10px}
 .burger{display:none;background:rgba(255,255,255,.15);color:#fff;padding:6px 10px;font-size:18px}
 .layout{display:flex;min-height:calc(100vh - 56px)}
-.side{width:238px;background:#fff;border-right:1px solid #dde5ee;padding:12px 0;flex-shrink:0;overflow-y:auto;height:calc(100vh - 56px);position:sticky;top:56px}
-.side a{display:flex;align-items:center;gap:10px;padding:10px 18px;color:#3c4c5c;text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent}
+/* ===== SIDEBAR COMPACT ===== */
+.side{width:206px;background:#fff;border-right:1px solid #dde5ee;padding:6px 0 10px;flex-shrink:0;overflow-y:auto;height:calc(100vh - 56px);position:sticky;top:56px}
+.side a{display:flex;align-items:center;gap:8px;padding:6px 13px;color:#3c4c5c;text-decoration:none;font-size:12.5px;font-weight:500;border-left:3px solid transparent;line-height:1.25}
 .side a:hover{background:#f2f7fd}
 .side a.on{background:#e8f0fe;color:#1a73e8;border-left-color:#1a73e8;font-weight:700}
-.side a i{font-style:normal;font-size:15px;width:20px;text-align:center}
-.side .sec{font-size:10px;font-weight:700;color:#9aa9b8;letter-spacing:1px;padding:14px 18px 6px;text-transform:uppercase}
+.side a i{font-style:normal;font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.side .sec{font-size:9.5px;font-weight:700;color:#9aa9b8;letter-spacing:1px;padding:9px 13px 3px;text-transform:uppercase}
+@media(max-width:900px){.burger{display:block}.side{position:fixed;left:-220px;top:56px;z-index:60;transition:.25s;box-shadow:4px 0 20px rgba(0,0,0,.12)}.side.open{left:0}}
 .main{flex:1;padding:18px;overflow-x:hidden}
-@media(max-width:900px){.burger{display:block}.side{position:fixed;left:-250px;top:56px;z-index:60;transition:.25s;box-shadow:4px 0 20px rgba(0,0,0,.12)}.side.open{left:0}}
 .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 4px rgba(16,42,67,.08);margin-bottom:16px}
 .card h2{font-size:16px;color:#0f4c81;margin-bottom:3px}
 .card .sub{font-size:12px;color:#8494a4;margin-bottom:15px}
@@ -191,7 +192,6 @@ tr.rawan-t4 .tag{background:#fdecea;color:#c0392b}
 .wa-btn:hover{background:#1da851;color:#fff}
 .wa-btn svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
 .jbtn{padding:2px 8px;font-size:11px;border-radius:5px;line-height:1.4;vertical-align:middle;margin-left:4px}
-/* FLOATING BACK BUTTON */
 .back-float{position:fixed;right:20px;bottom:20px;width:54px;height:54px;border-radius:50%;background:#1a73e8;color:#fff;font-size:22px;font-weight:700;box-shadow:0 6px 20px rgba(26,115,232,.45);z-index:150;display:none;align-items:center;justify-content:center;padding:0;border:none;cursor:pointer;transition:.18s;line-height:1}
 .back-float:hover{background:#155ab6;transform:scale(1.06)}
 .back-float:active{transform:scale(.95)}
@@ -278,12 +278,10 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 var LOGO_URL = 'https://www.smanklirong.sch.id/storage/school-identity/01M1GX0S27524DBWJKADF8FMCA.jpg';
 
-/* ====== GOOGLE OAUTH ====== */
 var DEFAULT_GOOGLE_CLIENT_ID = '';
 var GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 var GDRIVE_FOLDER_NAME = 'BK_Klirong_Backups';
 
-/* ================= HARI LIBUR NASIONAL INDONESIA ================= */
 var HARI_LIBUR = {
   '2026-01-01': 'Tahun Baru 2026',
   '2026-03-19': 'Hari Raya Nyepi',
@@ -296,7 +294,6 @@ var HARI_LIBUR = {
   '2026-12-25': 'Hari Raya Natal'
 };
 
-/* ====== KONFIG: nama sheet -> nama tabel Supabase ====== */
 var SH = {
   SETTING:'Setting', KELAS:'Kelas', GURUBK:'GuruBK', GURUPIKET:'GuruPiket', SISWA:'Siswa',
   IZIN:'Perizinan', TERLAMBAT:'Keterlambatan', HADIR:'Kehadiran',
@@ -330,7 +327,6 @@ var TABLES = {
   LainLain:'bk_lain_lain'
 };
 
-/* ====== Peta nama field aplikasi -> nama kolom Supabase ====== */
 var FIELD_MAP = {
   Kelas:  { Nama:'nama' },
   GuruBK: { ID:'id', Nama:'nama', NIP:'nip', KelasAmpu:'kelas_ampu',
@@ -377,7 +373,6 @@ var FIELD_MAP = {
   LainLain: { ID:'id', Tanggal:'tanggal', Kegiatan:'judul', Anggota:'nama', Keterangan:'keterangan' }
 };
 
-/* ================= HELPER KONVERSI ================= */
 function pkOf(sheet){
   if(sheet === SH.KELAS)   return 'nama';
   if(sheet === SH.SISWA)   return 'nis';
@@ -421,7 +416,6 @@ function fromRow(sheet, row){
   return obj;
 }
 
-/* ================= SUPABASE CLIENT ================= */
 var _sbClient = null;
 function sbClient(){
   if(!_sbClient){
@@ -435,7 +429,6 @@ function sbClient(){
   return _sbClient;
 }
 
-/* ================= API ADAPTER (SUPABASE) ================= */
 async function api(action, payload){
   payload = payload || {};
   try { return await _apiImpl(action, payload); }
@@ -1040,7 +1033,6 @@ function labelHariLibur(dateStr){
   if(HARI_LIBUR[dateStr]) return namaHari + ' — ' + HARI_LIBUR[dateStr];
   return 'Hari ' + namaHari;
 }
-/* ===== VALIDASI HARI EFEKTIF (Sabtu/Ahad/Libur Nasional tidak boleh input kegiatan) ===== */
 function cekHariEfektif(dateStr){
   if(!dateStr) return { ok:false, msg:'Tanggal wajib diisi terlebih dahulu.' };
   if(isHariLibur(dateStr)){
@@ -1054,7 +1046,6 @@ function shiftDate(dateStr, delta){
   return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 }
 
-/* ================= PERIODE: BULANAN / RENTANG WAKTU ================= */
 function periodeGet(prefix){
   var mode = ST.cache['per_'+prefix+'_mode'] || 'bulan';
   var bulan = ST.cache['per_'+prefix+'_bulan'] || today().slice(0,7);
@@ -1184,7 +1175,6 @@ function formatAnggotaKelompok(anggotaStr){
   });
 }
 
-/* ================= GOOGLE DRIVE ================= */
 function getGoogleClientId(){
   return (ST.setting && ST.setting.googleClientId) || DEFAULT_GOOGLE_CLIENT_ID || '';
 }
@@ -1322,7 +1312,6 @@ async function gdDelete(fileId){
   if(!r.ok && r.status !== 204) throw new Error('Gagal hapus: ' + await r.text());
 }
 
-/* ================= BACKUP / RESTORE ================= */
 async function buildBackupObject(){
   toast('Mengambil semua data dari server…','inf');
   var raw = await api('getAllForBackup', {});
@@ -1533,7 +1522,6 @@ async function applyRestore(data){
   });
 }
 
-/* ================= STATE ================= */
 var ST = { token:null, user:null, guru:null, page:'dashboard',
   kelas:[], gurubk:[], gurupiket:[], siswa:[], setting:{}, cache:{}, history:[],
   cacheTTL:{}, khTab:'harian' };
@@ -1682,7 +1670,6 @@ function ttdGuruWaliKelasHTML(nama, ttdUrl){
     '</div>';
 }
 
-/* ================= LOGIN UI ================= */
 function doLogin(){
   var u = $('#lgUser').value.trim();
   var p = $('#lgPass').value;
@@ -1795,7 +1782,6 @@ function refreshMyGuru(){
     .catch(function(e){ toast(e.message,'er'); });
 }
 
-/* ================= MENU ================= */
 var MENU = [
   {id:'dashboard', l:'Dashboard', i:'🏠', sec:'Utama'},
   {id:'setting',   l:'Setting',   i:'⚙️', sec:'Pengaturan', roles:['admin']},
@@ -1866,7 +1852,6 @@ function updateBackBtn(){
   else b.classList.remove('on');
 }
 
-/* ================= KONFIG ================= */
 var COLS = {
   izin:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'JamKeluar',l:'Jam Keluar'},{k:'NIS',l:'NIS'},{k:'Nama',l:'Nama'},{k:'Kelas',l:'Kelas'},{k:'Alasan',l:'Alasan'},{k:'JamKembali',l:'Kembali'},{k:'StatusKembali',l:'Status',f:function(v){ return v==='Kembali'?'<span class="tag tg">Kembali</span>':'<span class="tag ty">Belum</span>'; }}],
   terlambat:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'JamDatang',l:'Jam Datang'},{k:'NIS',l:'NIS'},{k:'Nama',l:'Nama'},{k:'Kelas',l:'Kelas'},{k:'Alasan',l:'Alasan'},{k:'Petugas',l:'Petugas'},{k:'Frekuensi',l:'Frekuensi',f:function(v,r){ return v || '-'; }}],
@@ -1941,7 +1926,6 @@ var FORMS = {
   ]
 };
 
-/* ================= FORM BUILDER ================= */
 function buildForm(key, data){
   var defs = FORMS[key]; var d = data || {};
   var html = '<div class="row r2">';
@@ -2066,14 +2050,6 @@ function dashInputPresensi(kelas){
 function dashInputJurnal(){
   formJurnal();
 }
-/* ================= DASHBOARD ================= */
-function dashInputPresensi(kelas){
-  if(kelas) formInputKehadiran(today(), kelas);
-  else formInputKehadiran(today());
-}
-function dashInputJurnal(){
-  formJurnal();
-}
 function renderDashboard(){
   $('#main').innerHTML = '<div class="card"><div class="empty">Memuat data…</div></div>';
   var isPiket = (ST.user.role === 'gurupiket');
@@ -2086,9 +2062,8 @@ function renderDashboard(){
 
   /* ===== TAMU: tampilkan hanya header ringkas, tanpa informasi apapun ===== */
   if(isTamu){
-    var roleLabelTamu = 'Tamu';
     var htmlTamu = '';
-    htmlTamu += '<div class="dash-head"><div class="who">'+esc(roleLabelTamu)+'</div><div class="d">'+tglPanjang(today())+'</div></div>';
+    htmlTamu += '<div class="dash-head"><div class="who">Tamu</div><div class="d">'+tglPanjang(today())+'</div></div>';
     htmlTamu += '<div class="dash-card" style="text-align:center;padding:28px 16px">';
     htmlTamu += '<div style="font-size:14px;color:#5a6b7c;line-height:1.7">Selamat datang. Silakan pilih menu <b>Siswa Rawan</b> atau <b>Report</b> pada panel di samping untuk melihat data.</div>';
     htmlTamu += '</div>';
@@ -2122,7 +2097,7 @@ function renderDashboard(){
     var izinSiswa = hadir.filter(function(r){ return r.Status === 'I'; }).length;
     var alpa = hadir.filter(function(r){ return r.Status === 'A'; }).length;
 
-    /* ===== CEK LIST KELAS SUDAH PRESENSI (hanya untuk Guru BK / admin, bukan Guru Piket) ===== */
+    /* ===== CEK LIST KELAS SUDAH PRESENSI (hanya untuk Guru BK / Admin) ===== */
     var ksAll = ks.slice().sort();
     var checkedMap = {};
     hadirAll.forEach(function(r){
@@ -2132,7 +2107,6 @@ function renderDashboard(){
 
     var html = '';
 
-    /* Header compact */
     var roleLabel = ST.user.role==='admin'?'Administrator':ST.user.role==='gurubk'?'Guru BK'+(ST.guru?' — '+ST.guru.Nama:''):ST.user.role==='gurupiket'?'Guru Piket'+(ST.guru?' — '+ST.guru.Nama:''):'Tamu';
     html += '<div class="dash-head"><div class="who">'+esc(roleLabel)+'</div><div class="d">'+tglPanjang(tglHariIni)+'</div></div>';
 
@@ -2200,16 +2174,15 @@ function renderDashboard(){
       html += '</div>';
     }
 
-    /* FAB - tombol mengambang di dashboard
+    /* FAB:
        - Guru BK & Admin: Jurnal Harian + Input Presensi
-       - Guru Piket: TIDAK ada tombol Input Presensi (hanya Jurnal tidak ada juga, karena piket tidak akses jurnal)
+       - Guru Piket: tidak ada FAB
     */
     html += '<div class="dash-fab">';
     if(isGuruBK || ST.user.role === 'admin'){
       html += '<button class="fab jurnal" onclick="dashInputJurnal()">📔 Jurnal Harian</button>';
       html += '<button class="fab" onclick="dashInputPresensi()">📋 Input Presensi</button>';
     }
-    /* Guru Piket: tidak ada FAB sama sekali */
     html += '</div>';
 
     $('#main').innerHTML = html;
@@ -2552,7 +2525,6 @@ function hapusGuruPiket(id){
   });
 }
 
-/* ================= LAYANAN (IZIN / TERLAMBAT) ================= */
 function renderLayanan(key){
   var isIzin = (key === 'izin');
   var judul = isIzin ? '🚪 Perizinan Keluar Sekolah' : '⏰ Keterlambatan Siswa';
@@ -2712,7 +2684,6 @@ async function simpanLayanan(key, id){
   if(key === 'izin' && !id) d.StatusKembali = 'Belum';
 
   if(!d.Tanggal){ toast('Tanggal wajib diisi','er'); return; }
-  // ===== KUNCI HARI SABTU/AHAD/LIBUR NASIONAL =====
   var cekHari = cekHariEfektif(d.Tanggal);
   if(!cekHari.ok){ toast(cekHari.msg, 'er'); return; }
   if(!d.Kelas){ toast('Kelas wajib diisi','er'); return; }
@@ -2999,7 +2970,6 @@ function konfirmasiImportLayanan(){
   });
 }
 
-/* ================= SISWA ================= */
 function renderSiswa(){
   $('#main').innerHTML = '<div class="hd"><div><h2>👥 Daftar Siswa</h2><div class="sub">Kelola data siswa — nomor HP & kontak WhatsApp</div></div>'+
     '<div class="tools"><button class="btn" onclick="formSiswa()">+ Tambah</button><button class="btn5" onclick="formImportSiswa()">📥 Import Excel/CSV</button><button class="btn4" onclick="exportSiswa()">⬇ Export</button></div></div>'+
@@ -3139,7 +3109,6 @@ function prosesImportSiswa(){
   } else { var t = $('#impText').value; if(!t.trim()) return toast('Pilih file/tempel','er'); parseText(t); }
 }
 
-/* ================= JURNAL HARIAN ================= */
 function renderJurnal(){
   var p = periodeGet('jurnal');
   $('#main').innerHTML = '<div class="hd"><div><h2>📔 Jurnal Harian Guru BK</h2><div class="sub">Catatan kegiatan harian — otomatis dari presensi & layanan BK. Hari Sabtu, Ahad, dan libur nasional tidak ditampilkan.</div></div>'+
@@ -3168,10 +3137,8 @@ function filterJurnal(){
     var eventsByDate = {};
     var ks = kelasSaya();
 
-    /* simpan baris jurnal manual supaya formJurnal() bisa menemukan datanya */
     ST.cache.jurnal = all[SH.JURNAL] || [];
 
-    /* ensureDate mengembalikan null jika tanggal merupakan hari libur / Sabtu / Ahad */
     function ensureDate(tglKey){
       if(isHariLibur(tglKey)) return null;
       if(!eventsByDate[tglKey]) eventsByDate[tglKey] = { Tanggal: tglKey, Items: [], _ids: [] };
@@ -3383,7 +3350,6 @@ function exportJurnal(){
   exportExcel('Jurnal_Harian_BK_'+dari+'_sd_'+sampai, head, body);
 }
 
-/* ================= KEHADIRAN / PRESENSI ================= */
 function renderKehadiran(){
   var activeTab = ST.khTab || 'harian';
   var tabs = [
@@ -3752,7 +3718,6 @@ function simpanKehadiran(){
       _hadirLoading = {};
       closeModal();
       toast(rows.length + ' data ' + (isEdit ? 'diperbarui' : 'disimpan'));
-      // langsung update cek list dashboard
       if(ST.page === 'dashboard') renderDashboard();
       else renderKehadiran();
     }).catch(function(e){ toast(e.message,'er'); });
@@ -3833,7 +3798,6 @@ function konfirmasiImportAbsen(){
   });
 }
 
-/* ================= KEGIATAN BK ================= */
 var KEG_CFG = {
   klasikal:{sheet:SH.KLASIKAL, judul:'🏫 Bimbingan Klasikal', sub:'Kegiatan bimbingan klasikal'},
   kelompok:{sheet:SH.KELOMPOK, judul:'👥 Bimbingan Kelompok', sub:'Kegiatan bimbingan kelompok'},
@@ -3890,7 +3854,6 @@ function formKegiatan(key, id){
 async function simpanKegiatan(key, id){
   var d = collectForm(key); if(!d) return;
   d.ID = id || uid();
-  // ===== KUNCI HARI SABTU/AHAD/LIBUR NASIONAL =====
   var cekHari = cekHariEfektif(d.Tanggal);
   if(!cekHari.ok){ toast(cekHari.msg, 'er'); return; }
   if(key === 'konseling' && !d.JenisLayanan) d.JenisLayanan = 'Konseling Individual';
@@ -4100,7 +4063,6 @@ function cetakRekapKegiatan(key){
   printLaporan(titleMap[key] || 'REKAPITULASI KEGIATAN BK', ['No'].concat(cols.map(function(c){ return c.l; })), rows.map(function(r,i){ return [i+1].concat(cols.map(function(c){ return r[c.k]||'-'; })); }), '', sub, ttdGuruBKHTML(tglAkhir || ''));
 }
 
-/* ================= REKAPITULASI (SISWA RAWAN) ================= */
 var REKAP_MENU = [
   {id:'perizinan',  label:'🚪 Perizinan', desc:'Siswa rawan izin + penanganan'},
   {id:'keterlambatan', label:'⏰ Keterlambatan', desc:'Siswa rawan terlambat + penanganan'},
@@ -4301,7 +4263,6 @@ function lpJenis(jenis){
 function lpCetak(){ var d = ST.cache.lp; if(!d) return; printLaporan(d.judul, d.head, d.body, '', d.sub, ttdGuruBKHTML(d.tanggalPengesahan || '')); }
 function lpExport(){ var d = ST.cache.lp; if(!d) return; exportExcel(d.judul.replace(/\s+/g,'_')+'_'+today(), d.head, d.body); }
 
-/* ================= REPORT ================= */
 var REPORT_MENU_ALL = [
   {id:'rekap_kegiatan', label:'📋 Rekap Kegiatan', desc:'Daftar kegiatan BK dengan filter rentang waktu & jenis'},
   {id:'per_siswa', label:'👤 Rekap Layanan Per Siswa', desc:'Daftar siswa penerima layanan BK & jumlah layanannya'},
@@ -4393,7 +4354,6 @@ function rpJenis(jenis){
   }).catch(function(e){ $('#rpView').innerHTML = '<div class="empty">'+esc(e.message)+'</div>'; });
 }
 
-/* ===== LAPORAN MAKALAH ===== */
 function renderLaporanMakalah(all, p){
   var html = buildLaporanMakalah(all, p);
   var vEl = $('#rpView');
@@ -4436,7 +4396,7 @@ function buildLaporanMakalah(all, p){
 
   var html = '';
 
-  /* ===== COVER ===== */
+  /* COVER */
   html += '<div class="cover-page">';
   html += '<div class="cover-logo"><img src="'+LOGO_URL+'" alt="Logo Sekolah" onerror="this.style.display=\'none\'"></div>';
   html += '<h1>LAPORAN KEGIATAN<br>BIMBINGAN DAN KONSELING<br>'+esc(sekolah)+'</h1>';
@@ -4446,7 +4406,7 @@ function buildLaporanMakalah(all, p){
   html += '<div style="margin-top:70px;font-size:14px;font-weight:bold">'+esc(sekolah)+'<br>TAHUN PELAJARAN 2026/2027</div>';
   html += '</div>';
 
-  /* ===== KATA PENGANTAR ===== */
+  /* KATA PENGANTAR */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">KATA PENGANTAR</h2>';
   html += '<p>Puji syukur kami panjatkan ke hadirat Allah SWT, Tuhan Yang Maha Esa, atas limpahan rahmat, taufik, dan hidayah-Nya sehingga penyusunan Laporan Kegiatan Bimbingan dan Konseling di '+esc(sekolah)+' untuk periode <b>'+esc(p.label)+'</b> ini dapat diselesaikan dengan baik dan tepat waktu.</p>';
@@ -4469,7 +4429,7 @@ function buildLaporanMakalah(all, p){
   html += '<div>NIP. '+esc(guruNIP)+'</div>';
   html += '</div></div>';
 
-  /* ===== DAFTAR ISI ===== */
+  /* DAFTAR ISI */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">DAFTAR ISI</h2>';
   html += '<table class="toc-table">';
@@ -4514,7 +4474,7 @@ function buildLaporanMakalah(all, p){
   html += tocRow('Lampiran-lampiran', '19', 'toc-bab');
   html += '</table>';
 
-  /* ===== BAB I ===== */
+  /* BAB I */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB I<br>PENDAHULUAN</h2>';
   html += '<h3>A. Latar Belakang</h3>';
@@ -4560,7 +4520,7 @@ function buildLaporanMakalah(all, p){
   else html += '<tr><th colspan="2" style="text-align:right">Total</th><th>'+totalSiswaAmpu+' siswa</th></tr>';
   html += '</tbody></table>';
 
-  /* ===== BAB II ===== */
+  /* BAB II */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB II<br>PROGRAM DAN PELAKSANAAN LAYANAN<br>BIMBINGAN DAN KONSELING</h2>';
   html += '<h3>A. Rekapitulasi Pelaksanaan Kegiatan</h3>';
@@ -4705,7 +4665,7 @@ function buildLaporanMakalah(all, p){
     html += '<p>Tidak terdapat kegiatan lain-lain pada periode ini.</p>';
   }
 
-  /* ===== BAB III ===== */
+  /* BAB III */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB III<br>DATA KEDISIPLINAN DAN PRESENSI SISWA</h2>';
   html += '<h3>A. Perizinan Keluar Sekolah</h3>';
@@ -4744,7 +4704,7 @@ function buildLaporanMakalah(all, p){
   html += '<tr><th colspan="2" style="text-align:right">Total Entri</th><th style="text-align:center">'+(hadirAgg.H+hadirAgg.S+hadirAgg.I+hadirAgg.A)+'</th></tr>';
   html += '</tbody></table>';
 
-  /* ===== BAB IV (EXPANDED) ===== */
+  /* BAB IV */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB IV<br>HASIL DAN PEMBAHASAN</h2>';
 
@@ -4824,7 +4784,7 @@ function buildLaporanMakalah(all, p){
   html += '</ol>';
   html += '<p>Dampak-dampak tersebut menunjukkan bahwa layanan bimbingan dan konseling memiliki kontribusi nyata dalam mendukung perkembangan holistik peserta didik.</p>';
 
-  /* ===== BAB V (EXPANDED) ===== */
+  /* BAB V */
   html += '<div class="page-break"></div>';
   html += '<h2 class="bab-title">BAB V<br>PENUTUP</h2>';
 
@@ -4892,7 +4852,7 @@ function buildLaporanMakalah(all, p){
   html += '<p>Demikian laporan kegiatan bimbingan dan konseling '+esc(sekolah)+' untuk periode <b>'+esc(p.label)+'</b> ini kami susun. Laporan ini diharapkan dapat menjadi bahan evaluasi, refleksi, dan referensi bagi semua pihak dalam upaya meningkatkan kualitas layanan bimbingan dan konseling di sekolah.</p>';
   html += '<p>Kami menyadari bahwa laporan ini masih jauh dari sempurna. Oleh karena itu, kritik dan saran yang membangun sangat kami harapkan demi perbaikan pada penyusunan laporan periode berikutnya. Semoga laporan ini memberikan manfaat bagi pengembangan layanan bimbingan dan konseling dan bagi kemajuan pendidikan pada umumnya.</p>';
 
-  /* ===== TANDA TANGAN ===== */
+  /* TANDA TANGAN */
   html += '<div style="margin-top:50px;display:flex;justify-content:space-between;page-break-inside:avoid">';
   html += '<div style="text-align:center">';
   html += '<div>Mengetahui,</div>';
@@ -5041,7 +5001,6 @@ function gabunganSemuaKegiatan(all, p){
   return evts;
 }
 
-/* ================= PRINT / EXPORT ================= */
 function kopHTML(){ var s = ST.setting || {}; var kop = s.kop ? '<img src="'+esc(s.kop)+'" style="width:100%;max-height:150px;object-fit:contain">' : ''; return kop ? '<div style="margin-bottom:8px;border-bottom:3px double #000;padding-bottom:6px">'+kop+'</div>' : ''; }
 function printLaporan(judul, head, body, extraHTML, subJudul, signatureHTML){
   var tbl = '<table class="rp"><thead><tr>'+head.map(function(h){ return '<th>'+esc(h)+'</th>'; }).join('')+'</tr></thead><tbody>';
@@ -5072,7 +5031,6 @@ function exportExcel(filename, head, body){
   toast('File Excel berhasil diunduh');
 }
 
-/* ================= BACA FILE EXCEL / CSV ================= */
 function bacaFileMentah(file){
   return new Promise(function(resolve, reject){
     if(!file){ reject(new Error('Tidak ada file')); return; }
