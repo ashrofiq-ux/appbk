@@ -2537,7 +2537,8 @@ function renderLayanan(key){
 }
 
 function loadLayananData(key){
-  var ks = kelasSaya();
+  // KHUSUS fitur izin/terlambat → tampilkan SEMUA kelas (termasuk untuk Guru BK)
+  var ks = ST.kelas;
   var tglHariIni = today();
   var dari   = ST.cache['filter_'+key+'_dari']   || tglHariIni;
   var sampai = ST.cache['filter_'+key+'_sampai'] || tglHariIni;
@@ -2569,7 +2570,7 @@ function resetFilterLayanan(key){
   loadLayananData(key);
 }
 
-/* ================= PERUBAHAN: filterLayanan (frekuensi all-time untuk keterlambatan) ================= */
+/* ================= PERUBAHAN: filterLayanan (semua kelas + frekuensi all-time) ================= */
 function filterLayanan(key){
   var dari    = $('#fDari')   ? $('#fDari').value   : today();
   var sampai  = $('#fSampai') ? $('#fSampai').value : today();
@@ -2609,7 +2610,8 @@ function filterLayanan(key){
     var allTerlambatForFreq = (key === 'terlambat') ? (results[1] || []) : null;
     setCache(key, rows);
 
-    var ks = kelasSaya();
+    // KHUSUS fitur izin/terlambat → tampilkan SEMUA kelas (termasuk untuk Guru BK)
+    var ks = ST.kelas;
     var filtered = rows.filter(function(r){ return ks.indexOf(r.Kelas) >= 0; });
     if(kelas)   filtered = filtered.filter(function(r){ return r.Kelas === kelas; });
     if(cariVal) filtered = filtered.filter(function(r){
@@ -2644,7 +2646,7 @@ function filterLayanan(key){
   });
 }
 
-/* ================= PERUBAHAN: tabelLayanan (frekuensi dihitung all-time) ================= */
+/* ================= PERUBAHAN: tabelLayanan (frekuensi all-time) ================= */
 function tabelLayanan(key, rows, isIzin, allRowsForFreq){
   if(!rows || !rows.length) return '<div class="empty">Tidak ada data pada periode ini.</div>';
   var canBulk = (!isIzin) && ST.user && (ST.user.role === 'gurubk' || ST.user.role === 'admin');
