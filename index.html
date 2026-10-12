@@ -198,7 +198,6 @@ tr.rawan-t4 .tag{background:#fdecea;color:#c0392b}
 .back-float:active{transform:scale(.95)}
 .back-float.on{display:flex}
 
-/* ===== DASHBOARD COMPACT + FAB ===== */
 .dash-head{background:linear-gradient(135deg,#0f4c81,#1a73e8);color:#fff;border-radius:12px;padding:11px 16px;text-align:center;margin-bottom:10px}
 .dash-head .who{font-size:11.5px;opacity:.85;letter-spacing:.5px;text-transform:uppercase}
 .dash-head .d{font-size:15px;font-weight:700;margin-top:3px}
@@ -234,9 +233,6 @@ tr.rawan-t4 .tag{background:#fdecea;color:#c0392b}
 .toc-table .toc-bab{font-weight:bold;padding-top:12px;color:#0f4c81}
 .toc-table .toc-sub{padding-left:24px}
 
-/* ===================================================== */
-/* ==================== DARK MODE ====================== */
-/* ===================================================== */
 body.dark{background:#0f1720;color:#cfdbe8}
 body.dark .top{background:#0a1520}
 body.dark .burger{background:rgba(255,255,255,.12)}
@@ -488,7 +484,7 @@ var FIELD_MAP = {
                  Tujuan:'tujuan', Hasil:'hasil', Rencana:'rencana', TTD_Ortu:'ttd_ortu' },
   CatatanKasus: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', Kelas:'kelas',
                   Deskripsi:'deskripsi', Tindakan:'tindakan', TindakLanjut:'tindak_lanjut' },
-  JurnalHarian: { ID:'id', Tanggal:'tanggal', Kegiatan:'kegiatan', Keterangan:'keterangan' },
+  JurnalHarian: { ID:'id', Tanggal:'tanggal', Kegiatan:'kegiatan', Petugas:'petugas', Keterangan:'keterangan' },
   KonferensiKasus: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', Kelas:'kelas',
                      JudulKasus:'judul_kasus', Deskripsi:'deskripsi', Peserta:'peserta',
                      Hasil:'hasil', Keputusan:'keputusan', TindakLanjut:'tindak_lanjut' },
@@ -496,7 +492,7 @@ var FIELD_MAP = {
                      Alasan:'alasan', TujuanAlih:'tujuan_alih', PihakPenerima:'pihak_penerima',
                      Catatan:'catatan', Status:'status', TindakLanjut:'tindak_lanjut' },
   CatatanAnekdot: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', Kelas:'kelas',
-                    Catatan:'catatan', Keterangan:'keterangan' },
+                    Catatan:'catatan', TindakLanjut:'tindak_lanjut', Keterangan:'keterangan' },
   LainLain: { ID:'id', Tanggal:'tanggal', Kegiatan:'judul', Anggota:'nama', Keterangan:'keterangan' }
 };
 
@@ -1173,7 +1169,6 @@ function shiftDate(dateStr, delta){
   return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 }
 
-/* ================= THEME ================= */
 function applyTheme(){
   var dark = false;
   try{ dark = localStorage.getItem('bk_dark') === '1'; }catch(e){}
@@ -1786,6 +1781,26 @@ function jenisLabelOf(jenis){
 function getGuruBKNama(){ if(ST.guru && ST.guru.Nama) return ST.guru.Nama; if(ST.setting && ST.setting.guruBK) return ST.setting.guruBK; return ''; }
 function getGuruBKNIP(){ if(ST.guru && ST.guru.NIP) return ST.guru.NIP; if(ST.setting && ST.setting.nipGuruBK) return ST.setting.nipGuruBK; return ''; }
 function getGuruBKTTD(){ if(ST.guru && ST.guru.TtdBK) return ST.guru.TtdBK; if(ST.setting && ST.setting.ttdBK) return ST.setting.ttdBK; return ''; }
+
+/* ====== IDENTITAS PEMBUAT JURNAL ====== */
+function currentPetugasName(){
+  if((ST.user && ST.user.role === 'gurubk') && ST.guru && ST.guru.Nama) return ST.guru.Nama;
+  if((ST.user && ST.user.role === 'gurupiket') && ST.guru && ST.guru.Nama) return ST.guru.Nama;
+  if(ST.user && ST.user.role === 'admin') return 'Administrator';
+  if(ST.user && ST.user.username) return ST.user.username;
+  return '';
+}
+function isJurnalOwner(row){
+  if(!row) return false;
+  var owner = String(row.Petugas||'').trim();
+  if(!owner) return true; // data lama tanpa petugas: tampil untuk semua gurubk
+  if(ST.user && ST.user.role === 'admin') return true;
+  if(ST.user && ST.user.role === 'gurubk'){
+    return owner === String(currentPetugasName()).trim();
+  }
+  return true;
+}
+
 function ttdGuruBKHTML(tanggalStr){
   var nama = getGuruBKNama(); var nip = getGuruBKNIP(); var ttdUrl = getGuruBKTTD();
   var ttdImg = ttdUrl ? '<img src="'+esc(ttdUrl)+'" style="max-height:75px;max-width:220px;object-fit:contain">' : '';
@@ -2033,10 +2048,18 @@ var COLS = {
   konseling:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Nama',l:'Nama Siswa'},{k:'Kelas',l:'Kelas'},{k:'JenisLayanan',l:'Jenis'},{k:'Masalah',l:'Masalah',f:function(v){return (v||'').slice(0,50);}}],
   panggilan:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Nama',l:'Nama Siswa'},{k:'Kelas',l:'Kelas'},{k:'NamaOrtu',l:'Nama Orang Tua/Wali'},{k:'HubunganOrtu',l:'Hubungan',f:function(v){return v?'<span class="tag tb">'+esc(v)+'</span>':'-';}},{k:'Hasil',l:'Hasil Pertemuan',f:function(v){return (v||'').slice(0,60);}}],
   kasus:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Nama',l:'Nama Siswa'},{k:'Kelas',l:'Kelas'},{k:'Deskripsi',l:'Deskripsi',f:function(v){return (v||'').slice(0,55);}},{k:'TindakLanjut',l:'Tindak Lanjut',f:function(v){return (v||'').slice(0,35);}}],
-  jurnal:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Kegiatan',l:'Kegiatan'},{k:'Keterangan',l:'Keterangan'}],
+  jurnal:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Kegiatan',l:'Kegiatan'},{k:'Petugas',l:'Petugas'},{k:'Keterangan',l:'Keterangan'}],
   konferensi:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Nama',l:'Nama Siswa'},{k:'Kelas',l:'Kelas'},{k:'JudulKasus',l:'Judul Kasus',f:function(v){return (v||'').slice(0,50);}},{k:'Hasil',l:'Hasil',f:function(v){return (v||'').slice(0,50);}}],
   alihtangan:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Nama',l:'Nama Siswa'},{k:'Kelas',l:'Kelas'},{k:'TujuanAlih',l:'Tujuan Alih'},{k:'PihakPenerima',l:'Pihak Penerima'},{k:'Status',l:'Status',f:function(v){return v?'<span class="tag tb">'+esc(v)+'</span>':'-';}}],
-  anekdot:[{k:'Tanggal',l:'Tanggal',f:tgl},{k:'Nama',l:'Nama Siswa'},{k:'Kelas',l:'Kelas'},{k:'Catatan',l:'Catatan',f:function(v){return (v||'').slice(0,60);}},{k:'Keterangan',l:'Keterangan',f:function(v){return (v||'').slice(0,40);}}],
+  /* === Catatan Anekdot: tambah kolom TindakLanjut sebelum Keterangan === */
+  anekdot:[
+    {k:'Tanggal',l:'Tanggal',f:tgl},
+    {k:'Nama',l:'Nama Siswa'},
+    {k:'Kelas',l:'Kelas'},
+    {k:'Catatan',l:'Catatan',f:function(v){return (v||'').slice(0,60);}},
+    {k:'TindakLanjut',l:'Tindak Lanjut',f:function(v){return (v||'').slice(0,50);}},
+    {k:'Keterangan',l:'Keterangan',f:function(v){return (v||'').slice(0,40);}}
+  ],
   lainlain:[
     {k:'Tanggal',l:'Tanggal',f:tgl},
     {k:'Kegiatan',l:'Kegiatan'},
@@ -2061,7 +2084,15 @@ var FORMS = {
   jurnal:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kegiatan',l:'Kegiatan',t:'textarea',req:1,full:1},{k:'Keterangan',l:'Keterangan',t:'text',full:1}],
   konferensi:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'JudulKasus',l:'Judul Kasus',t:'text',req:1,full:1},{k:'Deskripsi',l:'Deskripsi Kasus',t:'textarea',req:1,full:1},{k:'Peserta',l:'Peserta Konferensi',t:'textarea',full:1},{k:'Hasil',l:'Hasil Konferensi',t:'textarea',full:1},{k:'Keputusan',l:'Keputusan / Rekomendasi',t:'textarea',full:1},{k:'TindakLanjut',l:'Tindak Lanjut',t:'textarea',full:1}],
   alihtangan:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'Alasan',l:'Alasan Alih Tangan',t:'textarea',req:1,full:1},{k:'TujuanAlih',l:'Tujuan Alih Tangan',t:'text',req:1},{k:'PihakPenerima',l:'Pihak Penerima',t:'text',req:1},{k:'Status',l:'Status',t:'select',opts:['Proses','Selesai','Dibatalkan'],def:function(){return 'Proses';}},{k:'Catatan',l:'Catatan',t:'textarea',full:1},{k:'TindakLanjut',l:'Tindak Lanjut',t:'textarea',full:1}],
-  anekdot:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'Catatan',l:'Catatan',t:'textarea',full:1},{k:'Keterangan',l:'Keterangan',t:'text',full:1}],
+  /* === Catatan Anekdot: tambah field TindakLanjut sebelum Keterangan === */
+  anekdot:[
+    {k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},
+    {k:'Kelas',l:'Kelas',t:'kelas',req:1},
+    {k:'NIS',l:'Siswa',t:'siswa',req:1},
+    {k:'Catatan',l:'Catatan',t:'textarea',full:1},
+    {k:'TindakLanjut',l:'Tindak Lanjut',t:'textarea',full:1},
+    {k:'Keterangan',l:'Keterangan',t:'text',full:1}
+  ],
   lainlain:[
     {k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},
     {k:'Kegiatan',l:'Kegiatan',t:'text',req:1,full:1},
@@ -2230,7 +2261,7 @@ function renderDashboard(){
     var izinAll = batch[SH.IZIN] || [];
     var telatAll = batch[SH.TERLAMBAT] || [];
     var hadirAll = batch[SH.HADIR] || [];
-    var jurnalAll = batch[SH.JURNAL] || [];
+    var jurnalAll = (batch[SH.JURNAL] || []).filter(isJurnalOwner);
     var izin = izinAll.filter(inKelas);
     var telat = telatAll.filter(inKelas);
     var hadir = hadirAll.filter(inKelas);
@@ -2303,7 +2334,7 @@ function renderDashboard(){
     if(isGuruBK && jurnalHariIni.length && !isHariLibur(tglHariIni)){
       html += '<div class="dash-card" style="border-left:4px solid #27ae60">';
       html += '<h2>📔 Jurnal Harian Hari Ini</h2>';
-      html += '<div class="sub">'+jurnalHariIni.length+' kegiatan tercatat</div>';
+      html += '<div class="sub">'+jurnalHariIni.length+' kegiatan tercatat (milik Anda)</div>';
       jurnalHariIni.slice(0, 4).forEach(function(j){
         html += '<div class="jurnal-auto" style="padding:8px 10px;margin-bottom:6px"><b>'+esc((j.Kegiatan||'').slice(0,80))+'</b>'+(j.Keterangan?' — '+esc(j.Keterangan):'')+'</div>';
       });
@@ -3288,7 +3319,8 @@ function prosesImportSiswa(){
 
 function renderJurnal(){
   var p = periodeGet('jurnal');
-  $('#main').innerHTML = '<div class="hd"><div><h2>📔 Jurnal Harian Guru BK</h2><div class="sub">Catatan kegiatan harian — otomatis dari presensi & layanan BK. Hari Sabtu, Ahad, dan libur nasional tidak ditampilkan.</div></div>'+
+  var scopeNote = (ST.user.role === 'gurubk') ? ' — menampilkan jurnal milik Anda sendiri' : ' — menampilkan jurnal semua Guru BK';
+  $('#main').innerHTML = '<div class="hd"><div><h2>📔 Jurnal Harian Guru BK</h2><div class="sub">Catatan kegiatan harian — otomatis dari presensi & layanan BK. Hari Sabtu, Ahad, dan libur nasional tidak ditampilkan'+scopeNote+'</div></div>'+
     '<div class="tools"><button class="btn" onclick="formJurnal()">+ Tambah Catatan Manual</button><button class="btn2" onclick="cetakJurnal()">🖨 Cetak</button><button class="btn4" onclick="exportJurnal()">⬇ Export</button></div></div>'+
     '<div class="card"><div class="fbar">'+
       periodeBarHTML('jurnal')+
@@ -3313,6 +3345,8 @@ function filterJurnal(){
   api('batchGetData', { sheets: sheets, filters: filters }).then(function(all){
     var eventsByDate = {};
     var ks = kelasSaya();
+    var isAdmin = (ST.user.role === 'admin');
+    var currentUser = currentPetugasName();
 
     ST.cache.jurnal = all[SH.JURNAL] || [];
 
@@ -3322,12 +3356,17 @@ function filterJurnal(){
       return eventsByDate[tglKey];
     }
 
+    /* ====== MANUAL JURNAL: hanya milik user Guru BK yang login (atau semua untuk admin) ====== */
     (all[SH.JURNAL]||[]).forEach(function(r){
       var tglStr = String(r.Tanggal);
       if(tglStr < dari || tglStr > sampai) return;
+      if(!isAdmin && ST.user.role === 'gurubk'){
+        var owner = String(r.Petugas||'').trim();
+        if(owner && owner !== String(currentUser).trim()) return;
+      }
       var ev = ensureDate(tglStr);
       if(!ev) return;
-      ev.Items.push({ kegiatan: r.Kegiatan||'', keterangan: r.Keterangan||'', manualId: r.ID });
+      ev.Items.push({ kegiatan: r.Kegiatan||'', keterangan: r.Keterangan||'', manualId: r.ID, petugas: r.Petugas||'' });
       ev._ids.push(r.ID);
     });
 
@@ -3404,7 +3443,7 @@ function filterJurnal(){
       '<div class="sc g"><div class="n">'+dates.length+'</div><div class="l">Hari Tercatat</div></div>'+
       '<div class="sc b"><div class="n">'+totalItems+'</div><div class="l">Total Kegiatan</div></div>'+
     '</div>';
-    html += '<div class="hint" style="margin-bottom:9px">📅 Periode: <b>'+esc(p.label)+'</b> ('+tgl(dari)+' — '+tgl(sampai)+') • Sabtu/Ahad/libur nasional dikecualikan</div>';
+    html += '<div class="hint" style="margin-bottom:9px">📅 Periode: <b>'+esc(p.label)+'</b> ('+tgl(dari)+' — '+tgl(sampai)+') • Sabtu/Ahad/libur nasional dikecualikan'+(isAdmin?' • <b>Semua Guru BK</b>':' • <b>Milik saya sendiri</b>')+'</div>';
 
     dates.forEach(function(d, idx){
       var ev = eventsByDate[d];
@@ -3421,7 +3460,11 @@ function filterJurnal(){
             '<button class="btn3 jbtn" onclick="hapusJurnal(\''+it.manualId+'\')" title="Hapus catatan manual">🗑 Hapus</button>'+
             '</span>';
         }
-        html += '<li style="margin-bottom:6px">'+esc(line)+actions+'</li>';
+        var ownerBadge = '';
+        if(isAdmin && it.petugas){
+          ownerBadge = ' <span class="tag tb" style="font-size:10px">👤 '+esc(it.petugas)+'</span>';
+        }
+        html += '<li style="margin-bottom:6px">'+esc(line)+ownerBadge+actions+'</li>';
       });
       html += '</ol></div>';
       html += '</div>';
@@ -3438,10 +3481,14 @@ function formJurnal(id){
     var view = ST.cache['jurnal_view'] || [];
     for(var i=0;i<view.length;i++){
       var it = (view[i].Items||[]).find(function(x){ return x.manualId && String(x.manualId)===String(id); });
-      if(it){ data = { ID: it.manualId, Tanggal: view[i].Tanggal, Kegiatan: it.kegiatan, Keterangan: it.keterangan }; break; }
+      if(it){ data = { ID: it.manualId, Tanggal: view[i].Tanggal, Kegiatan: it.kegiatan, Keterangan: it.keterangan, Petugas: it.petugas }; break; }
     }
   }
+  var infoPetugas = id
+    ? ''
+    : '<div class="notif info">📝 Catatan akan tercatat atas nama <b>'+esc(currentPetugasName()||'(Anda)')+'</b>. Catatan hanya dapat dilihat oleh akun Anda sendiri.</div>';
   openModal((id?'Edit':'Tambah')+' Catatan Jurnal Harian',
+    infoPetugas+
     '<div class="notif edit">⚠️ Catatan manual hanya dapat disimpan pada hari efektif (Senin–Jumat, bukan hari libur nasional).</div>'+
     buildForm('jurnal', data),
     '<button class="btn2" onclick="closeModal()">Batal</button><button class="btn" onclick="simpanJurnal(\''+(id||'')+'\')">💾 Simpan</button>', true);
@@ -3456,6 +3503,11 @@ function simpanJurnal(id){
     toast('Tidak dapat menyimpan jurnal pada ' + labelHariLibur(d.Tanggal), 'er');
     return;
   }
+  if(id){
+    var existing = (ST.cache.jurnal||[]).find(function(r){ return String(r.ID)===String(id); });
+    if(existing && existing.Petugas) d.Petugas = existing.Petugas;
+  }
+  if(!d.Petugas) d.Petugas = currentPetugasName();
   api('saveRecord', { sheet: SH.JURNAL, data: d }).then(function(){
     closeModal(); toast('Catatan jurnal disimpan');
     invalidateCache('jurnal_view');
@@ -3477,20 +3529,20 @@ function cetakJurnal(){
   var dari = ST.cache['jurnal_dari'] || today();
   var sampai = ST.cache['jurnal_sampai'] || today();
   var label = ST.cache['jurnal_label'] || ((dari === sampai) ? ('Tanggal: ' + tglPanjang(dari)) : ('Periode: ' + tgl(dari) + ' s.d. ' + tgl(sampai)));
-  var subJudul = label + ' • ' + tgl(dari) + ' s.d. ' + tgl(sampai);
+  var isAdmin = (ST.user.role === 'admin');
+  var scope = isAdmin ? ' • Semua Guru BK' : (' • Milik: ' + (currentPetugasName()||'-'));
+  var subJudul = label + ' • ' + tgl(dari) + ' s.d. ' + tgl(sampai) + scope;
 
-  var tbl = '<table class="rp"><thead><tr>'+
-    '<th style="width:44px;text-align:center">No</th>'+
-    '<th style="width:230px">Tanggal</th>'+
-    '<th>Kegiatan</th>'+
-    '<th style="width:200px">Keterangan</th>'+
-    '</tr></thead><tbody>';
+  var headCols = isAdmin
+    ? ['No','Tanggal','Kegiatan','Petugas','Keterangan']
+    : ['No','Tanggal','Kegiatan','Keterangan'];
+  var tbl = '<table class="rp"><thead><tr>'+headCols.map(function(h){ return '<th>'+h+'</th>'; }).join('')+'</tr></thead><tbody>';
 
   var totalRows = 0;
   events.forEach(function(ev){ totalRows += (ev.Items||[]).length; });
 
   if(!totalRows){
-    tbl += '<tr><td colspan="4" style="text-align:center;padding:22px">Tidak ada data</td></tr>';
+    tbl += '<tr><td colspan="'+headCols.length+'" style="text-align:center;padding:22px">Tidak ada data</td></tr>';
   } else {
     events.forEach(function(ev, idx){
       var items = ev.Items || [];
@@ -3502,6 +3554,7 @@ function cetakJurnal(){
           tbl += '<td rowspan="'+items.length+'" style="vertical-align:top">'+esc(tglPanjang(ev.Tanggal))+'</td>';
         }
         tbl += '<td style="white-space:pre-wrap">'+esc(it.kegiatan||'')+'</td>';
+        if(isAdmin) tbl += '<td>'+esc(it.petugas||'-')+'</td>';
         tbl += '<td style="white-space:pre-wrap">'+esc(it.keterangan||'')+'</td>';
         tbl += '</tr>';
       });
@@ -3515,11 +3568,13 @@ function cetakJurnal(){
 }
 function exportJurnal(){
   var events = ST.cache['jurnal_view'] || [];
-  var head = ['No','Tanggal','Kegiatan','Keterangan'];
+  var isAdmin = (ST.user.role === 'admin');
+  var head = isAdmin ? ['No','Tanggal','Kegiatan','Petugas','Keterangan'] : ['No','Tanggal','Kegiatan','Keterangan'];
   var body = [];
   events.forEach(function(ev, idx){
     (ev.Items || []).forEach(function(it){
-      body.push([idx+1, ev.Tanggal, it.kegiatan||'', it.keterangan||'']);
+      if(isAdmin) body.push([idx+1, ev.Tanggal, it.kegiatan||'', it.petugas||'', it.keterangan||'']);
+      else body.push([idx+1, ev.Tanggal, it.kegiatan||'', it.keterangan||'']);
     });
   });
   var dari = ST.cache['jurnal_dari'] || today();
@@ -4208,7 +4263,7 @@ function cetakKegiatan(key, id){
   else if(key==='kasus'){ tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Deskripsi Kasus',r.Deskripsi)+line('Tindakan Yang Dilakukan',r.Tindakan)+line('Tindak Lanjut',r.TindakLanjut)+'</table>'; }
   else if(key==='konferensi'){ tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Judul Kasus',r.JudulKasus)+line('Deskripsi Kasus',r.Deskripsi)+line('Peserta Konferensi',r.Peserta)+line('Hasil Konferensi',r.Hasil)+line('Keputusan / Rekomendasi',r.Keputusan)+line('Tindak Lanjut',r.TindakLanjut)+'</table>'; }
   else if(key==='alihtangan'){ tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Alasan Alih Tangan',r.Alasan)+line('Tujuan Alih Tangan',r.TujuanAlih)+line('Pihak Penerima',r.PihakPenerima)+line('Status',r.Status)+line('Catatan',r.Catatan)+line('Tindak Lanjut',r.TindakLanjut)+'</table>'; }
-  else if(key==='anekdot'){ tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Catatan',r.Catatan)+line('Keterangan',r.Keterangan)+'</table>'; }
+  else if(key==='anekdot'){ tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Catatan',r.Catatan)+line('Tindak Lanjut',r.TindakLanjut)+line('Keterangan',r.Keterangan)+'</table>'; }
   else if(key==='lainlain'){
     var anggotaListLL = formatAnggotaKelompok(r.Anggota);
     var anggotaHTMLLL = anggotaListLL.length ? '<ol style="margin:0;padding-left:20px">'+anggotaListLL.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ol>' : '-';
@@ -4817,9 +4872,9 @@ function buildLaporanMakalah(all, p){
 
   html += '<h3>J. Catatan Anekdot</h3>';
   if(anekdot.length){
-    html += '<table class="rp"><thead><tr><th style="width:44px">No</th><th>Tanggal</th><th>Nama Siswa</th><th>Catatan</th></tr></thead><tbody>';
+    html += '<table class="rp"><thead><tr><th style="width:44px">No</th><th>Tanggal</th><th>Nama Siswa</th><th>Catatan</th><th>Tindak Lanjut</th></tr></thead><tbody>';
     anekdot.slice().sort(function(a,b){ return String(a.Tanggal).localeCompare(String(b.Tanggal)); }).forEach(function(r,i){
-      html += '<tr><td>'+(i+1)+'</td><td>'+esc(tgl(r.Tanggal))+'</td><td>'+esc(r.Nama||'-')+'</td><td>'+esc((r.Catatan||'-').slice(0,180))+'</td></tr>';
+      html += '<tr><td>'+(i+1)+'</td><td>'+esc(tgl(r.Tanggal))+'</td><td>'+esc(r.Nama||'-')+'</td><td>'+esc((r.Catatan||'-').slice(0,180))+'</td><td>'+esc((r.TindakLanjut||'-').slice(0,120))+'</td></tr>';
     });
     html += '</tbody></table>';
   } else {
@@ -5355,7 +5410,6 @@ function parseAbsenArray(arr, kelas, defaultBulan){
 
 document.addEventListener('DOMContentLoaded', async function(){
   console.log('[BK] Supabase URL =', SUPABASE_URL);
-  /* Apply theme first */
   applyTheme();
   try{
     if(location.protocol.startsWith('http')){
