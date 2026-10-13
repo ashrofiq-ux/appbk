@@ -355,26 +355,26 @@ body.dark .back-float:hover{background:#155ab6}
 body.dark .dash-fab .fab{box-shadow:0 6px 18px rgba(0,0,0,.5)}
 body.dark .err{background:#3a1717;color:#f59a8e}
 body.dark .rpsub{color:#7d8f9f}
-/* Kartu compact siswa tidak masuk */
-.absent-card{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(16,42,67,.08);margin-bottom:10px}
-.absent-card h2{font-size:14px;color:#0f4c81;margin-bottom:2px}
-.absent-card .sub{font-size:11.5px;color:#8494a4;margin-bottom:9px}
-.absent-grid{display:flex;flex-wrap:wrap;gap:6px}
-.absent-chip{display:inline-flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e3eaf2;border-radius:8px;padding:5px 9px;font-size:11.5px;line-height:1.2;max-width:100%}
-.absent-chip b{color:#0f4c81;font-weight:700;font-size:11.5px}
-.absent-chip .kls{color:#8494a4;font-size:10.5px}
-.absent-chip .st{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:800;color:#fff;flex-shrink:0}
-.absent-chip .st.S{background:#b9770e}.absent-chip .st.I{background:#1a73e8}.absent-chip .st.A{background:#c0392b}
-.absent-kelas-head{font-size:12px;font-weight:700;color:#0f4c81;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid #e3eaf2}
-.absent-kelas-head .cnt{color:#8494a4;font-weight:600}
-.absent-kelas-block{margin-bottom:10px}
+
+/* Kartu compact siswa tidak masuk - dikelompok per status */
+.absent-card{background:#fff;border-radius:12px;padding:11px 14px;box-shadow:0 1px 4px rgba(16,42,67,.08);margin-bottom:10px}
+.absent-card h2{font-size:13.5px;color:#0f4c81;margin-bottom:2px}
+.absent-card .sub{font-size:11px;color:#8494a4;margin-bottom:7px}
+.absent-line{font-size:12px;line-height:1.55;margin-bottom:2px;font-weight:400;color:#20303f}
+.absent-line .lbl{color:#5a6b7c;font-weight:400}
+.absent-line .lbl-s{color:#b9770e}
+.absent-line .lbl-i{color:#1a73e8}
+.absent-line .lbl-a{color:#c0392b}
+.absent-line .names{color:#20303f;font-weight:400}
 body.dark .absent-card{background:#16202b}
 body.dark .absent-card h2{color:#7fb8f5}
-body.dark .absent-chip{background:#131d28;border-color:#243442}
-body.dark .absent-chip b{color:#7fb8f5}
-body.dark .absent-chip .kls{color:#7d8f9f}
-body.dark .absent-kelas-head{color:#7fb8f5;border-bottom-color:#243442}
-body.dark .absent-kelas-head .cnt{color:#7d8f9f}
+body.dark .absent-card .sub{color:#7d8f9f}
+body.dark .absent-line{color:#cfdbe8}
+body.dark .absent-line .lbl{color:#8ba0b3}
+body.dark .absent-line .lbl-s{color:#f5c97a}
+body.dark .absent-line .lbl-i{color:#5fa8f5}
+body.dark .absent-line .lbl-a{color:#f59a8e}
+body.dark .absent-line .names{color:#cfdbe8}
 </style>
 </head>
 <body>
@@ -513,7 +513,8 @@ var FIELD_MAP = {
                      Catatan:'catatan', Status:'status', TindakLanjut:'tindak_lanjut' },
   CatatanAnekdot: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', Kelas:'kelas',
                     Catatan:'catatan', TindakLanjut:'tindak_lanjut', Keterangan:'keterangan' },
-  LainLain: { ID:'id', Tanggal:'tanggal', Kegiatan:'judul', Anggota:'nama', Keterangan:'keterangan' }
+  /* === Lain-Lain: tambah Petugas untuk filter kepemilikan === */
+  LainLain: { ID:'id', Tanggal:'tanggal', Kegiatan:'judul', Anggota:'nama', Keterangan:'keterangan', Petugas:'petugas' }
 };
 
 function pkOf(sheet){
@@ -1819,16 +1820,19 @@ function isJurnalOwner(row){
   }
   return true;
 }
-function isKelompokOwner(row){
+/* === Filter kepemilikan kegiatan BK (Bimbingan Kelompok & Lain-Lain) === */
+function isKegiatanOwner(row){
   if(!row) return false;
   var owner = String(row.Petugas||'').trim();
-  if(!owner) return true;
+  if(!owner) return true; /* data lama tanpa petugas: tampil */
   if(ST.user && ST.user.role === 'admin') return true;
   if(ST.user && ST.user.role === 'gurubk'){
     return owner === String(currentPetugasName()).trim();
   }
   return true;
 }
+/* Alias untuk kompatibilitas kode lama */
+function isKelompokOwner(row){ return isKegiatanOwner(row); }
 
 function ttdGuruBKHTML(tanggalStr){
   var nama = getGuruBKNama(); var nip = getGuruBKNIP(); var ttdUrl = getGuruBKTTD();
@@ -2089,10 +2093,11 @@ var COLS = {
     {k:'TindakLanjut',l:'Tindak Lanjut',f:function(v){return (v||'').slice(0,50);}},
     {k:'Keterangan',l:'Keterangan',f:function(v){return (v||'').slice(0,40);}}
   ],
-  /* Kolom Lain-Lain: kelas ditampilkan di belakang nama */
+  /* Lain-Lain: tambah kolom Petugas */
   lainlain:[
     {k:'Tanggal',l:'Tanggal',f:tgl},
     {k:'Kegiatan',l:'Kegiatan'},
+    {k:'Petugas',l:'Guru BK Pelaksana',f:function(v){ return v ? '<span class="tag tb">'+esc(v)+'</span>' : '<span class="tag tgray">-</span>'; }},
     {k:'Anggota',l:'Siswa',f:function(v){
       var arr = formatAnggotaKelompok(v);
       if(!arr.length) return '-';
@@ -2101,7 +2106,7 @@ var COLS = {
     {k:'Keterangan',l:'Keterangan'}
   ]
 };
-/* === KOLOM KHUSUS UNTUK TAMPILAN PER SISWA === */
+/* === KOLOM KHUSUS UNTUK TAMPILAN PER SISWA (VIEW) === */
 var COLS_PERSISWA = {
   anekdot: [
     {k:'Tanggal',l:'Tanggal',f:tgl},
@@ -2109,6 +2114,19 @@ var COLS_PERSISWA = {
     {k:'TindakLanjut',l:'Tindak Lanjut',f:function(v){return esc(v||'-');}},
     {k:'Keterangan',l:'Keterangan',f:function(v){return esc(v||'-');}}
   ],
+  /* Konseling view: kolom JenisLayanan DIHAPUS */
+  konseling: [
+    {k:'Tanggal',l:'Tanggal',f:tgl},
+    {k:'Masalah',l:'Permasalahan',f:function(v){return esc(v||'-');}},
+    {k:'Tujuan',l:'Tujuan',f:function(v){return esc(v||'-');}},
+    {k:'Pendekatan',l:'Pendekatan/Teknik',f:function(v){return esc(v||'-');}},
+    {k:'Hasil',l:'Hasil',f:function(v){return esc(v||'-');}},
+    {k:'Rencana',l:'Rencana Tindak Lanjut',f:function(v){return esc(v||'-');}}
+  ]
+};
+/* === KOLOM UNTUK CETAK PER SISWA (PRINT) — Konseling tetap menampilkan Jenis Layanan === */
+var COLS_PERSISWA_PRINT = {
+  anekdot: COLS_PERSISWA.anekdot,
   konseling: [
     {k:'Tanggal',l:'Tanggal',f:tgl},
     {k:'JenisLayanan',l:'Jenis Layanan',f:function(v){return esc(v||'Konseling Individual');}},
@@ -2360,48 +2378,40 @@ function renderDashboard(){
     html += '<div class="dash-stat p"><div class="n">'+belumKembali.length+'</div><div class="l">Izin Belum<br>Kembali</div></div>';
     html += '</div>';
 
-    /* ====== SISWA TIDAK MASUK HARI INI - DIKELOMPOKKAN PER KELAS ====== */
+    /* ====== SISWA TIDAK MASUK HARI INI — dikelompok per Sakit / Izin / Alpa ====== */
     if(!isPiket){
       var tidakMasuk = hadir.filter(function(r){
         return r.Status === 'S' || r.Status === 'I' || r.Status === 'A';
       });
-      tidakMasuk.sort(function(a,b){
-        var order = {A:0, I:1, S:2};
-        var oa = order[a.Status] != null ? order[a.Status] : 9;
-        var ob = order[b.Status] != null ? order[b.Status] : 9;
-        if(oa !== ob) return oa - ob;
-        return String(a.Nama||'').localeCompare(String(b.Nama||''));
-      });
       html += '<div class="absent-card" style="border-left:4px solid '+(tidakMasuk.length?'#e74c3c':'#27ae60')+'">';
       html += '<h2>🚫 Siswa Tidak Masuk Hari Ini</h2>';
-      html += '<div class="sub">'+tidakMasuk.length+' siswa — dikelompokkan per kelas (Sakit / Izin / Alpa)</div>';
+      html += '<div class="sub">'+tidakMasuk.length+' siswa total</div>';
       if(tidakMasuk.length){
-        var byKelasAbsent = {};
+        var byStatus = {S:[], I:[], A:[]};
         tidakMasuk.forEach(function(r){
-          var k = String(r.Kelas||'Tanpa Kelas').trim() || 'Tanpa Kelas';
-          if(!byKelasAbsent[k]) byKelasAbsent[k] = [];
-          byKelasAbsent[k].push(r);
+          if(byStatus[r.Status]) byStatus[r.Status].push(r);
         });
-        var kelasAbsentKeys = Object.keys(byKelasAbsent).sort();
-        kelasAbsentKeys.forEach(function(k){
-          var list = byKelasAbsent[k];
-          html += '<div class="absent-kelas-block">';
-          html += '<div class="absent-kelas-head">'+esc(k)+' <span class="cnt">('+list.length+' siswa)</span></div>';
-          html += '<div class="absent-grid">';
-          list.forEach(function(r){
-            var stCls = r.Status;
-            var stLabel = r.Status === 'S' ? 'S' : r.Status === 'I' ? 'I' : 'A';
-            var ket = (r.Keterangan||'').trim();
-            var title = r.Nama + ' — ' + (r.Status==='S'?'Sakit':r.Status==='I'?'Izin':'Alpa') + (ket ? ' • '+ket : '');
-            html += '<span class="absent-chip" title="'+esc(title)+'">'+
-              '<span class="st '+stCls+'">'+stLabel+'</span>'+
-              '<b>'+esc(r.Nama||'-')+'</b>'+
-            '</span>';
-          });
-          html += '</div></div>';
+        var statusMeta = [
+          {st:'S', label:'Sakit', cls:'lbl-s'},
+          {st:'I', label:'Izin',  cls:'lbl-i'},
+          {st:'A', label:'Alpa',  cls:'lbl-a'}
+        ];
+        var anyShown = false;
+        statusMeta.forEach(function(meta){
+          var list = byStatus[meta.st];
+          if(!list.length) return;
+          anyShown = true;
+          list.sort(function(a,b){ return String(a.Nama||'').localeCompare(String(b.Nama||'')); });
+          var names = list.map(function(r){
+            var nm = String(r.Nama||'').trim();
+            var kl = String(r.Kelas||'').trim();
+            return nm + (kl ? ' ('+kl+')' : '');
+          }).join(', ');
+          html += '<div class="absent-line"><span class="lbl '+meta.cls+'">'+meta.label+' ('+list.length+'):</span> <span class="names">'+esc(names)+'</span></div>';
         });
+        if(!anyShown){ html += '<div class="hint">Tidak ada data.</div>'; }
       } else {
-        html += '<div class="empty" style="padding:16px">Semua siswa hadir hari ini. 👍</div>';
+        html += '<div class="empty" style="padding:14px">Semua siswa hadir hari ini. 👍</div>';
       }
       html += '</div>';
     }
@@ -3428,7 +3438,7 @@ function prosesImportSiswa(){
 
 /* ================= JURNAL HARIAN ================= */
 function renderJurnal(){
-  /* Set default tampilan awal jurnal = rentang 3 hari terakhir (jika belum diatur) */
+  /* Default tampilan awal jurnal = rentang 3 hari terakhir (jika belum diatur) */
   if(!ST.cache['per_jurnal_mode']){
     ST.cache['per_jurnal_mode'] = 'rentang';
     var dEnd = new Date();
@@ -4178,6 +4188,10 @@ function renderKegiatan(key){
     scopeNote = ' — hanya menampilkan kegiatan yang Anda input sendiri';
   } else if(key === 'kelompok' && ST.user.role === 'admin'){
     scopeNote = ' — menampilkan semua kegiatan bimbingan kelompok';
+  } else if(key === 'lainlain' && ST.user.role === 'gurubk'){
+    scopeNote = ' — hanya menampilkan kegiatan yang Anda input sendiri';
+  } else if(key === 'lainlain' && ST.user.role === 'admin'){
+    scopeNote = ' — menampilkan semua kegiatan lain-lain';
   }
   $('#main').innerHTML = '<div class="hd"><div><h2>'+cfg.judul+'</h2><div class="sub">'+cfg.sub+' — tampil per bulan atau rentang waktu (Sabtu/Ahad/libur dikecualikan)'+scopeNote+'</div></div>'+
     '<div class="tools"><button class="btn" onclick="formKegiatan(\''+key+'\')">+ Tambah</button><button class="btn4" onclick="exportKegiatan(\''+key+'\')">⬇ Export</button></div></div>'+
@@ -4339,7 +4353,8 @@ function cetakPerSiswa(key){
   if(!s) return toast('Data siswa tidak ditemukan','er');
 
   var judul = key === 'anekdot' ? 'CATATAN ANEKDOT SISWA' : 'RIWAYAT KONSELING INDIVIDUAL';
-  var cols = COLS_PERSISWA[key];
+  /* Gunakan versi PRINT: untuk konseling tetap menampilkan Jenis Layanan */
+  var cols = COLS_PERSISWA_PRINT[key] || COLS_PERSISWA[key];
   var identHTML = buildIdentitasSiswaPrintHTML(s);
 
   var tglAkhir = rows.length ? rows[0].Tanggal : today();
@@ -4355,7 +4370,7 @@ function cetakPerSiswa(key){
   }
   tbl += '</tbody></table>';
 
-  /* Sesuai permintaan: hapus "Total: X catatan" di bawah judul */
+  /* Sesuai permintaan: tanpa "Total: X catatan" di bawah judul */
   var content = '<h2 class="rptitle">'+esc(judul)+'</h2>'+
     identHTML + tbl;
   printRaw(judul, content, ttdGuruBKHTML(tglAkhir));
@@ -4382,19 +4397,21 @@ function formKegiatan(key, id, preset){
   var data = id ? (ST.cache[key]||[]).find(function(r){ return r.ID===id; }) : null;
   if(!data && preset) data = preset;
   var formHTML = buildForm(key, data);
-  if(key === 'kelompok'){
+  /* Admin bisa pilih Guru BK Pelaksana pada Bimbingan Kelompok & Lain-Lain */
+  if(key === 'kelompok' || key === 'lainlain'){
     if(ST.user && ST.user.role === 'admin'){
       var currentPetugas = (data && data.Petugas) || '';
       var gurubkNames = (ST.gurubk||[]).map(function(g){ return g.Nama; }).filter(Boolean);
-      var extra = '<div class="fg" style="margin-top:8px"><label>Guru BK Pelaksana <span style="color:#e74c3c">*</span></label>'+
+      var label = key === 'lainlain' ? 'Guru BK Penginput' : 'Guru BK Pelaksana';
+      var extra = '<div class="fg" style="margin-top:8px"><label>'+label+' <span style="color:#e74c3c">*</span></label>'+
         '<select id="f_Petugas"><option value="">-- Pilih Guru BK --</option>'+
         gurubkNames.map(function(n){ return '<option '+(n===currentPetugas?'selected':'')+'>'+esc(n)+'</option>'; }).join('')+
         '</select>'+
-        '<div class="hint">Hanya Guru BK yang dipilih yang dapat melihat data ini di menu Bimbingan Kelompok.</div></div>';
+        '<div class="hint">Hanya Guru BK yang dipilih yang dapat melihat data ini di menu ini.</div></div>';
       formHTML = formHTML + extra;
     } else {
       var ownerName = currentPetugasName() || '(Anda)';
-      var info = '<div class="notif info" style="margin-top:8px">📝 Data akan tercatat atas nama <b>'+esc(ownerName)+'</b> dan hanya dapat dilihat oleh akun Anda sendiri di menu Bimbingan Kelompok.</div>';
+      var info = '<div class="notif info" style="margin-top:8px">📝 Data akan tercatat atas nama <b>'+esc(ownerName)+'</b> dan hanya dapat dilihat oleh akun Anda sendiri di menu ini.</div>';
       formHTML = formHTML + info;
     }
   }
@@ -4411,18 +4428,19 @@ async function simpanKegiatan(key, id){
   var cekHari = cekHariEfektif(d.Tanggal);
   if(!cekHari.ok){ toast(cekHari.msg, 'er'); return; }
   if(key === 'konseling' && !d.JenisLayanan) d.JenisLayanan = 'Konseling Individual';
-  if(key === 'kelompok'){
+  if(key === 'kelompok' || key === 'lainlain'){
     if(id){
-      var existingKel = (ST.cache[key]||[]).find(function(r){ return String(r.ID)===String(id); });
-      if(existingKel && existingKel.Petugas && !d.Petugas) d.Petugas = existingKel.Petugas;
+      var existing = (ST.cache[key]||[]).find(function(r){ return String(r.ID)===String(id); });
+      if(existing && existing.Petugas && !d.Petugas) d.Petugas = existing.Petugas;
     }
     if(!d.Petugas){
       if(ST.user && ST.user.role === 'admin'){
-        toast('Pilih Guru BK Pelaksana terlebih dahulu','er'); return;
+        toast('Pilih Guru BK ' + (key === 'lainlain' ? 'Penginput' : 'Pelaksana') + ' terlebih dahulu','er');
+        return;
       }
       d.Petugas = currentPetugasName();
     }
-    if(d.Anggota){
+    if(key === 'kelompok' && d.Anggota){
       var nisList = d.Anggota.split(';').map(function(s){ return s.trim().split(' - ')[0].trim(); }).filter(Boolean);
       var kelasSet = {};
       nisList.forEach(function(nis){ var s = ST.siswa.find(function(x){ return String(x.NIS) === nis; }); if(s && s.Kelas) kelasSet[s.Kelas] = 1; });
@@ -4464,8 +4482,9 @@ function filterKegiatan(key){
   if(key === 'klasikal' || key === 'kelompok') promises.push(getHadirRowsRange(dari, sampai).catch(function(){ return []; }));
   Promise.all(promises).then(function(res){
     var rows = res[0] || [];
-    if(key === 'kelompok'){
-      rows = rows.filter(isKelompokOwner);
+    /* === Filter kepemilikan untuk Bimbingan Kelompok & Lain-Lain === */
+    if(key === 'kelompok' || key === 'lainlain'){
+      rows = rows.filter(isKegiatanOwner);
     }
     setCache(key, rows);
     if(key === 'klasikal') ST.cache.hadirKlasikal = res[1] || [];
@@ -4479,7 +4498,7 @@ function filterKegiatan(key){
     ST.cache['v_'+key] = r;
     if(vEl){
       var scopeInfo = '';
-      if(key === 'kelompok'){
+      if(key === 'kelompok' || key === 'lainlain'){
         scopeInfo = (ST.user.role === 'admin') ? ' • <b>Semua Guru BK</b>' : ' • <b>Milik saya sendiri</b>';
       }
       var info = '<div class="hint" style="margin-bottom:9px">📅 Periode: <b>'+esc(p.label)+'</b> ('+tgl(dari)+' — '+tgl(sampai)+') • Total: <b>'+r.length+'</b> kegiatan'+(kelas?' • Kelas: <b>'+esc(kelas)+'</b>':'')+scopeInfo+'</div>';
@@ -4514,14 +4533,16 @@ function detailKegiatan(key, id){
     if(!v) v = '-';
     html += '<tr><th style="width:190px;background:#f5f8fc">'+fd.l+'</th><td style="white-space:pre-wrap">'+esc(v)+'</td></tr>';
   });
-  if(key === 'kelompok'){
+  if(key === 'kelompok' || key === 'lainlain'){
     html += '<tr><th style="width:190px;background:#f5f8fc">Guru BK Pelaksana</th><td>'+(r.Petugas ? '<span class="tag tb">'+esc(r.Petugas)+'</span>' : '<span class="tag tgray">-</span>')+'</td></tr>';
-    var st = hitungPresensiKelompok(r.Anggota, r.Tanggal);
-    var hadirTxt, tidakTxt;
-    if(st.hasData){ hadirTxt = st.hadir + ' siswa'; tidakTxt = st.tidak + ' siswa'; }
-    else { hadirTxt = (r.JumlahHadir||0) + ' siswa'; tidakTxt = (r.JumlahTidakHadir||0) + ' siswa'; }
-    html += '<tr><th style="width:190px;background:#f5f8fc">Jumlah Hadir</th><td style="color:#1e8449;font-weight:700">'+hadirTxt+'</td></tr>';
-    html += '<tr><th style="width:190px;background:#f5f8fc">Jumlah Tidak Hadir</th><td style="color:#c0392b;font-weight:700">'+tidakTxt+'</td></tr>';
+    if(key === 'kelompok'){
+      var st = hitungPresensiKelompok(r.Anggota, r.Tanggal);
+      var hadirTxt, tidakTxt;
+      if(st.hasData){ hadirTxt = st.hadir + ' siswa'; tidakTxt = st.tidak + ' siswa'; }
+      else { hadirTxt = (r.JumlahHadir||0) + ' siswa'; tidakTxt = (r.JumlahTidakHadir||0) + ' siswa'; }
+      html += '<tr><th style="width:190px;background:#f5f8fc">Jumlah Hadir</th><td style="color:#1e8449;font-weight:700">'+hadirTxt+'</td></tr>';
+      html += '<tr><th style="width:190px;background:#f5f8fc">Jumlah Tidak Hadir</th><td style="color:#c0392b;font-weight:700">'+tidakTxt+'</td></tr>';
+    }
   }
   if(key === 'kr'){
     html += '<tr><th style="background:#f5f8fc">TTD</th><td><div style="display:flex;gap:18px;flex-wrap:wrap">'+
@@ -4612,7 +4633,7 @@ function cetakKegiatan(key, id){
   else if(key==='lainlain'){
     var anggotaListLL = formatAnggotaKelompok(r.Anggota);
     var anggotaHTMLLL = anggotaListLL.length ? '<ol style="margin:0;padding-left:20px">'+anggotaListLL.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('')+'</ol>' : '-';
-    tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Kegiatan',r.Kegiatan||r.Judul)+lineHTML('Siswa ('+anggotaListLL.length+' orang)', anggotaHTMLLL)+line('Keterangan',r.Keterangan)+'</table>';
+    tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Guru BK Pelaksana',r.Petugas)+line('Kegiatan',r.Kegiatan||r.Judul)+lineHTML('Siswa ('+anggotaListLL.length+' orang)', anggotaHTMLLL)+line('Keterangan',r.Keterangan)+'</table>';
   }
   else { tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+'</table>'; }
   body += tabelIsi;
@@ -4625,17 +4646,16 @@ function cetakRekapKegiatan(key){
   var tglAkhir = p.sampai;
   rows.forEach(function(r){ if(String(r.Tanggal||'') > tglAkhir) tglAkhir = String(r.Tanggal||''); });
   var scope = '';
-  if(key === 'kelompok'){
+  if(key === 'kelompok' || key === 'lainlain'){
     scope = (ST.user.role === 'admin') ? ' • Semua Guru BK' : (' • Milik: ' + (currentPetugasName()||'-'));
   }
   var sub = p.label + (p.mode === 'rentang' ? ' ('+tgl(p.dari)+' s.d. '+tgl(p.sampai)+')' : '') + scope;
 
-  /* === Khusus Lain-Lain: daftar siswa tampil "Nama (Kelas)" tanpa NIS di depan === */
   if(key === 'lainlain'){
-    var headL = ['No','Tanggal','Kegiatan','Siswa','Keterangan'];
+    var headL = ['No','Tanggal','Kegiatan','Guru BK','Siswa','Keterangan'];
     var bodyL = rows.map(function(r,i){
       var anggotaList = formatAnggotaKelompok(r.Anggota);
-      return [i+1, tgl(r.Tanggal), r.Kegiatan||r.Judul||'-', anggotaList.length ? anggotaList.join(', ') : '-', r.Keterangan||'-'];
+      return [i+1, tgl(r.Tanggal), r.Kegiatan||r.Judul||'-', r.Petugas||'-', anggotaList.length ? anggotaList.join(', ') : '-', r.Keterangan||'-'];
     });
     printLaporan('REKAPITULASI KEGIATAN BK LAIN-LAIN', headL, bodyL, '', sub, ttdGuruBKHTML(tglAkhir || ''));
     return;
@@ -5571,7 +5591,8 @@ function gabunganSemuaKegiatan(all, p){
     evts.push({ tanggal: tglStr, jenis: jenis, kelas: kelasRow.join(', '), detail: detail, key: key, id: id });
   }
   (all[SH.KLASIKAL]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Bimbingan Klasikal', r.Kelas, 'Kelas '+(r.Kelas||'-')+' | Topik: '+(r.Topik||'-'), 'klasikal', r.ID); });
-  (all[SH.KELOMPOK]||[]).filter(isKelompokOwner).forEach(function(r){ var anggota = String(r.Anggota||'').split(';').map(function(x){ return x.trim(); }).filter(Boolean); push(String(r.Tanggal||''), 'Bimbingan Kelompok', r.Kelas, 'Topik: '+(r.Topik||'-')+' | '+anggota.length+' siswa', 'kelompok', r.ID); });
+  /* Bimbingan Kelompok & Lain-Lain: filter by owner untuk gurubk */
+  (all[SH.KELOMPOK]||[]).filter(isKegiatanOwner).forEach(function(r){ var anggota = String(r.Anggota||'').split(';').map(function(x){ return x.trim(); }).filter(Boolean); push(String(r.Tanggal||''), 'Bimbingan Kelompok', r.Kelas, 'Topik: '+(r.Topik||'-')+' | '+anggota.length+' siswa', 'kelompok', r.ID); });
   (all[SH.KR]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Home Visit', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'kr', r.ID); });
   (all[SH.KONSELING]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Konseling Individual', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'konseling', r.ID); });
   (all[SH.PANGGILAN]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Pertemuan OT', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'panggilan', r.ID); });
@@ -5579,7 +5600,7 @@ function gabunganSemuaKegiatan(all, p){
   (all[SH.KONFERENSI]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Konferensi Kasus', r.Kelas, (r.Nama||'')+' | '+(r.JudulKasus||'-'), 'konferensi', r.ID); });
   (all[SH.ALIHTANGAN]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Alih Tangan Kasus', r.Kelas, (r.Nama||'')+' | '+(r.TujuanAlih||'-'), 'alihtangan', r.ID); });
   (all[SH.ANEKDOT]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Catatan Anekdot', r.Kelas, (r.Nama||'')+' | '+(r.Catatan||'-'), 'anekdot', r.ID); });
-  (all[SH.LAINLAIN]||[]).forEach(function(r){
+  (all[SH.LAINLAIN]||[]).filter(isKegiatanOwner).forEach(function(r){
     var anggota = formatAnggotaKelompok(r.Anggota);
     push(String(r.Tanggal||''), 'Lain-Lain', '', (r.Kegiatan||r.Judul||'-')+' | '+(anggota.length ? anggota.join(', ') : '-'), 'lainlain', r.ID);
   });
