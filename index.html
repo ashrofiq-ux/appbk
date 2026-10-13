@@ -1701,8 +1701,8 @@ function getHadirRows(forceRefresh){
 function penangananSering(jenis, n){
   if(jenis === 'izin' || jenis === 'terlambat'){
     if(n >= 10) return 'Tier 4 | Kunjungan rumah + surat peringatan tertulis + koordinasi Wali Kelas & Kepala Sekolah untuk tindakan disiplin';
-    if(n >= 7)  return 'Tier 3 | Wali Kelas memfasilitasi pemanggilan orang tua + konseling intensif Guru BK + surat peringatan tertulis';
-    if(n >= 5)  return 'Tier 2 | Wali Kelas berkoordinasi dengan Guru BK + konseling individual + pemanggilan orang tua ke sekolah';
+    if(n >= 7)  return 'Tier 3 | Wali Kelas memfasilitasi Pertemuan orang tua + konseling intensif Guru BK + surat peringatan tertulis';
+    if(n >= 5)  return 'Tier 2 | Wali Kelas berkoordinasi dengan Guru BK + konseling individual + Pertemuan orang tua ke sekolah';
     if(n >= 3)  return 'Tier 1 | Wali Kelas memberi teguran lisan dan pembinaan; Guru BK memantau perkembangan';
     return 'Pemantauan rutin Wali Kelas';
   }
@@ -1710,7 +1710,7 @@ function penangananSering(jenis, n){
 }
 function penangananRawan(A, total){
   if(A >= 10) return 'Tier 4 | Kunjungan rumah + surat peringatan tertulis + koordinasi Wali Kelas & Kepala Sekolah';
-  if(A >= 5)  return 'Tier 3 | Wali Kelas memfasilitasi pemanggilan orang tua + konseling intensif Guru BK + home visit';
+  if(A >= 5)  return 'Tier 3 | Wali Kelas memfasilitasi Pertemuan orang tua + konseling intensif Guru BK + home visit';
   if(A >= 3)  return 'Tier 2 | Wali Kelas berkoordinasi dengan Guru BK + konseling individual + home visit awal';
   if(total >= 5) return 'Tier 1 | Wali Kelas melakukan pembinaan; Guru BK memantau perkembangan';
   return 'Pemantauan rutin Wali Kelas';
@@ -1965,7 +1965,7 @@ var MENU = [
   {id:'kelompok',  l:'Bimbingan Kelompok', i:'👥', sec:'Layanan BK', roles:['admin','gurubk']},
   {id:'kr',        l:'Home Visit', i:'🏡', sec:'Layanan BK', roles:['admin','gurubk']},
   {id:'konseling', l:'Konseling Individual', i:'💬', sec:'Layanan BK', roles:['admin','gurubk']},
-  {id:'panggilan', l:'Pemanggilan OT', i:'📞', sec:'Layanan BK', roles:['admin','gurubk']},
+  {id:'panggilan', l:'Pertemuan OT', i:'📞', sec:'Layanan BK', roles:['admin','gurubk']},
   {id:'kasus',     l:'Catatan Kasus', i:'⚖️', sec:'Layanan BK', roles:['admin','gurubk']},
   {id:'konferensi',l:'Konferensi Kasus', i:'🤝', sec:'Layanan BK', roles:['admin','gurubk']},
   {id:'alihtangan',l:'Alih Tangan Kasus', i:'🔄', sec:'Layanan BK', roles:['admin','gurubk']},
@@ -2092,7 +2092,7 @@ var FORMS = {
   kelompok:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Topik',l:'Topik Bahasan',t:'text',req:1,full:1},{k:'Tujuan',l:'Tujuan',t:'textarea',full:1},{k:'Anggota',l:'Anggota Kelompok (semua kelas)',t:'multisiswa-all',req:1,full:1},{k:'Hasil',l:'Hasil / Kesimpulan',t:'textarea',full:1}],
   kr:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'AlamatTujuan',l:'Alamat Tujuan',t:'text',req:1,full:1},{k:'Masalah',l:'Permasalahan',t:'textarea',req:1,full:1},{k:'Tujuan',l:'Tujuan Kunjungan',t:'textarea',full:1},{k:'Petugas1',l:'Guru BK',t:'text',req:1,def:function(){return ST.guru?ST.guru.Nama:'';}},{k:'TTD1',l:'TTD Guru BK',t:'sig'},{k:'Petugas2',l:'Guru/Wali Kelas',t:'text',req:1},{k:'TTD2',l:'TTD Guru/Wali Kelas',t:'sig'},{k:'NamaOrtu',l:'Nama Orang Tua / Wali',t:'text',req:1},{k:'TTD_Ortu',l:'TTD Orang Tua',t:'sig'},{k:'Hasil',l:'Hasil Kunjungan',t:'textarea',full:1},{k:'Rencana',l:'Rencana Tindak Lanjut',t:'textarea',full:1}],
   konseling:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'Masalah',l:'Permasalahan',t:'textarea',req:1,full:1},{k:'Tujuan',l:'Tujuan Konseling',t:'textarea',full:1},{k:'Pendekatan',l:'Pendekatan / Teknik',t:'text'},{k:'Hasil',l:'Hasil Konseling',t:'textarea',full:1},{k:'Rencana',l:'Rencana Tindak Lanjut',t:'textarea',full:1}],
-  panggilan:[{k:'Tanggal',l:'Tanggal Pertemuan',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'NamaOrtu',l:'Nama Orang Tua / Wali',t:'text',req:1},{k:'HubunganOrtu',l:'Hubungan dengan Siswa',t:'select',opts:['Ayah','Ibu','Wali'],def:function(){return 'Ibu';}},{k:'Masalah',l:'Permasalahan yang Dibicarakan',t:'textarea',req:1,full:1},{k:'Tujuan',l:'Tujuan Pemanggilan',t:'textarea',full:1},{k:'Hasil',l:'Hasil Pertemuan / Kesepakatan',t:'textarea',full:1},{k:'Rencana',l:'Rencana Tindak Lanjut',t:'textarea',full:1},{k:'TTD_Ortu',l:'Tanda Tangan Orang Tua / Wali',t:'sig'}],
+  panggilan:[{k:'Tanggal',l:'Tanggal Pertemuan',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'NamaOrtu',l:'Nama Orang Tua / Wali',t:'text',req:1},{k:'HubunganOrtu',l:'Hubungan dengan Siswa',t:'select',opts:['Ayah','Ibu','Wali'],def:function(){return 'Ibu';}},{k:'Masalah',l:'Permasalahan yang Dibicarakan',t:'textarea',req:1,full:1},{k:'Tujuan',l:'Tujuan Pertemuan',t:'textarea',full:1},{k:'Hasil',l:'Hasil Pertemuan / Kesepakatan',t:'textarea',full:1},{k:'Rencana',l:'Rencana Tindak Lanjut',t:'textarea',full:1},{k:'TTD_Ortu',l:'Tanda Tangan Orang Tua / Wali',t:'sig'}],
   kasus:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'Deskripsi',l:'Deskripsi Kasus',t:'textarea',req:1,full:1},{k:'Tindakan',l:'Tindakan Yang Dilakukan',t:'textarea',full:1},{k:'TindakLanjut',l:'Tindak Lanjut',t:'text',full:1}],
   jurnal:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kegiatan',l:'Kegiatan',t:'textarea',req:1,full:1},{k:'Keterangan',l:'Keterangan',t:'text',full:1}],
   konferensi:[{k:'Tanggal',l:'Tanggal',t:'date',req:1,def:today},{k:'Kelas',l:'Kelas',t:'kelas',req:1},{k:'NIS',l:'Siswa',t:'siswa',req:1},{k:'JudulKasus',l:'Judul Kasus',t:'text',req:1,full:1},{k:'Deskripsi',l:'Deskripsi Kasus',t:'textarea',req:1,full:1},{k:'Peserta',l:'Peserta Konferensi',t:'textarea',full:1},{k:'Hasil',l:'Hasil Konferensi',t:'textarea',full:1},{k:'Keputusan',l:'Keputusan / Rekomendasi',t:'textarea',full:1},{k:'TindakLanjut',l:'Tindak Lanjut',t:'textarea',full:1}],
@@ -3425,7 +3425,7 @@ function filterJurnal(){
     pushLayanan(all[SH.KELOMPOK], 'Bimbingan Kelompok');
     pushLayanan(all[SH.KR], 'Home Visit', true);
     pushLayanan(all[SH.KONSELING], 'Konseling Individual', true);
-    pushLayanan(all[SH.PANGGILAN], 'Pemanggilan OT', true);
+    pushLayanan(all[SH.PANGGILAN], 'Pertemuan OT', true);
     pushLayanan(all[SH.KASUS], 'Catatan Kasus');
     pushLayanan(all[SH.KONFERENSI], 'Konferensi Kasus', true);
     pushLayanan(all[SH.ALIHTANGAN], 'Alih Tangan Kasus', true);
@@ -4049,7 +4049,7 @@ var KEG_CFG = {
   kelompok:{sheet:SH.KELOMPOK, judul:'👥 Bimbingan Kelompok', sub:'Kegiatan bimbingan kelompok'},
   kr:{sheet:SH.KR, judul:'🏡 Home Visit', sub:'Kunjungan rumah'},
   konseling:{sheet:SH.KONSELING, judul:'💬 Konseling Individual', sub:'Layanan konseling individual'},
-  panggilan:{sheet:SH.PANGGILAN, judul:'📞 Pemanggilan Orang Tua', sub:'Pertemuan Guru BK dengan orang tua'},
+  panggilan:{sheet:SH.PANGGILAN, judul:'📞 Pertemuan Orang Tua', sub:'Pertemuan Guru BK dengan orang tua'},
   kasus:{sheet:SH.KASUS, judul:'⚖️ Catatan Kasus', sub:'Pencatatan kasus siswa'},
   konferensi:{sheet:SH.KONFERENSI, judul:'🤝 Konferensi Kasus', sub:'Konferensi kasus untuk penanganan bersama'},
   alihtangan:{sheet:SH.ALIHTANGAN, judul:'🔄 Alih Tangan Kasus', sub:'Pengalihan penanganan kasus ke pihak lain'},
@@ -4264,7 +4264,7 @@ function cetakKegiatan(key, id){
     kelompok:'LAPORAN PELAKSANAAN BIMBINGAN KELOMPOK',
     kr:'LAPORAN PELAKSANAAN HOME VISIT',
     konseling:'LAPORAN PELAKSANAAN KONSELING INDIVIDUAL',
-    panggilan:'LAPORAN PEMANGGILAN ORANG TUA / WALI',
+    panggilan:'LAPORAN Pertemuan ORANG TUA / WALI',
     kasus:'CATATAN KASUS SISWA',
     konferensi:'LAPORAN KONFERENSI KASUS',
     alihtangan:'LAPORAN ALIH TANGAN KASUS',
@@ -4307,7 +4307,7 @@ function cetakKegiatan(key, id){
     return;
   } else if(key==='konseling'){ tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Permasalahan',r.Masalah)+line('Tujuan Konseling',r.Tujuan)+line('Pendekatan / Teknik',r.Pendekatan)+line('Hasil Konseling',r.Hasil)+line('Rencana Tindak Lanjut',r.Rencana)+'</table>'; }
   else if(key==='panggilan'){
-    tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Nama Orang Tua / Wali',r.NamaOrtu)+line('Hubungan',r.HubunganOrtu)+line('Permasalahan',r.Masalah)+line('Tujuan Pemanggilan',r.Tujuan)+line('Hasil Pertemuan',r.Hasil)+line('Rencana Tindak Lanjut',r.Rencana)+'</table>';
+    tabelIsi = '<table class="rp">'+line('Hari / Tanggal',tglPanjang(r.Tanggal))+line('Nama Siswa',r.Nama)+line('Kelas',r.Kelas)+line('Nama Orang Tua / Wali',r.NamaOrtu)+line('Hubungan',r.HubunganOrtu)+line('Permasalahan',r.Masalah)+line('Tujuan Pertemuan',r.Tujuan)+line('Hasil Pertemuan',r.Hasil)+line('Rencana Tindak Lanjut',r.Rencana)+'</table>';
     var blokTTDPang = '<div style="margin-top:44px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:nowrap">';
     blokTTDPang += '<div style="flex:1;text-align:center;min-width:200px">'+ttdOrangTuaHTML(r.NamaOrtu, r.TTD_Ortu)+'</div>';
     blokTTDPang += '<div style="flex:1;text-align:center;min-width:200px">'+
@@ -4343,7 +4343,7 @@ function cetakRekapKegiatan(key){
     kelompok:'REKAPITULASI BIMBINGAN KELOMPOK',
     kr:'REKAPITULASI HOME VISIT',
     konseling:'REKAPITULASI KONSELING INDIVIDUAL',
-    panggilan:'REKAPITULASI PEMANGGILAN ORANG TUA',
+    panggilan:'REKAPITULASI Pertemuan ORANG TUA',
     kasus:'REKAPITULASI CATATAN KASUS',
     konferensi:'REKAPITULASI KONFERENSI KASUS',
     alihtangan:'REKAPITULASI ALIH TANGAN KASUS',
@@ -4466,7 +4466,7 @@ function getPenangananSiswa(all, nis, p){
   var nisStr = String(nis);
   (all[SH.KR]||[]).forEach(function(r){ if(String(r.NIS)!==nisStr) return; if(!ok(String(r.Tanggal||''))) return; list.push('Home Visit ('+tgl(r.Tanggal)+')'); });
   (all[SH.KONSELING]||[]).forEach(function(r){ if(String(r.NIS)!==nisStr) return; if(!ok(String(r.Tanggal||''))) return; list.push((r.JenisLayanan||'Konseling')+' ('+tgl(r.Tanggal)+')'); });
-  (all[SH.PANGGILAN]||[]).forEach(function(r){ if(String(r.NIS)!==nisStr) return; if(!ok(String(r.Tanggal||''))) return; list.push('Pemanggilan Orang Tua ('+tgl(r.Tanggal)+')'); });
+  (all[SH.PANGGILAN]||[]).forEach(function(r){ if(String(r.NIS)!==nisStr) return; if(!ok(String(r.Tanggal||''))) return; list.push('Pertemuan Orang Tua ('+tgl(r.Tanggal)+')'); });
   (all[SH.KASUS]||[]).forEach(function(r){ if(String(r.NIS)!==nisStr) return; if(!ok(String(r.Tanggal||''))) return; list.push('Catatan Kasus ('+tgl(r.Tanggal)+')'); });
   (all[SH.KONFERENSI]||[]).forEach(function(r){ if(String(r.NIS)!==nisStr) return; if(!ok(String(r.Tanggal||''))) return; list.push('Konferensi Kasus ('+tgl(r.Tanggal)+')'); });
   (all[SH.ALIHTANGAN]||[]).forEach(function(r){ if(String(r.NIS)!==nisStr) return; if(!ok(String(r.Tanggal||''))) return; list.push('Alih Tangan Kasus ('+tgl(r.Tanggal)+')'); });
@@ -4744,7 +4744,7 @@ function buildLaporanMakalah(all, p){
   html += tocRow('C. Bimbingan Kelompok', '5', 'toc-sub');
   html += tocRow('D. Konseling Individual', '6', 'toc-sub');
   html += tocRow('E. Kunjungan Rumah (Home Visit)', '6', 'toc-sub');
-  html += tocRow('F. Pemanggilan Orang Tua / Wali', '7', 'toc-sub');
+  html += tocRow('F. Pertemuan Orang Tua / Wali', '7', 'toc-sub');
   html += tocRow('G. Catatan Kasus', '7', 'toc-sub');
   html += tocRow('H. Konferensi Kasus', '8', 'toc-sub');
   html += tocRow('I. Alih Tangan Kasus', '8', 'toc-sub');
@@ -4795,7 +4795,7 @@ function buildLaporanMakalah(all, p){
   html += '<ol>';
   html += '<li>Layanan bimbingan klasikal, kelompok, dan individual.</li>';
   html += '<li>Layanan konseling individual dan konseling kelompok.</li>';
-  html += '<li>Kunjungan rumah (home visit) dan pemanggilan orang tua / wali.</li>';
+  html += '<li>Kunjungan rumah (home visit) dan Pertemuan orang tua / wali.</li>';
   html += '<li>Konferensi kasus dan alih tangan kasus.</li>';
   html += '<li>Catatan anekdot, catatan kasus, dan kegiatan pendukung lainnya.</li>';
   html += '<li>Data perizinan, keterlambatan, dan presensi siswa.</li>';
@@ -4824,7 +4824,7 @@ function buildLaporanMakalah(all, p){
     ['Bimbingan Kelompok', kelompok.length],
     ['Konseling Individual', konseling.length],
     ['Home Visit', kr.length],
-    ['Pemanggilan Orang Tua', panggilan.length],
+    ['Pertemuan Orang Tua', panggilan.length],
     ['Catatan Kasus', kasus.length],
     ['Konferensi Kasus', konferensi.length],
     ['Alih Tangan Kasus', alihtangan.length],
@@ -4890,8 +4890,8 @@ function buildLaporanMakalah(all, p){
     html += '<p>Tidak terdapat kegiatan home visit pada periode ini.</p>';
   }
 
-  html += '<h3>F. Pemanggilan Orang Tua / Wali</h3>';
-  html += '<p>Pemanggilan orang tua / wali merupakan upaya sekolah untuk menjalin komunikasi dan kerja sama dengan keluarga dalam rangka penanganan permasalahan peserta didik yang membutuhkan keterlibatan orang tua.</p>';
+  html += '<h3>F. Pertemuan Orang Tua / Wali</h3>';
+  html += '<p>Pertemuan orang tua / wali merupakan upaya sekolah untuk menjalin komunikasi dan kerja sama dengan keluarga dalam rangka penanganan permasalahan peserta didik yang membutuhkan keterlibatan orang tua.</p>';
   if(panggilan.length){
     html += '<table class="rp"><thead><tr><th style="width:44px">No</th><th>Tanggal</th><th>Nama Siswa</th><th>Kelas</th><th>Nama Orang Tua</th><th>Hasil</th></tr></thead><tbody>';
     panggilan.slice().sort(function(a,b){ return String(a.Tanggal).localeCompare(String(b.Tanggal)); }).forEach(function(r,i){
@@ -4899,7 +4899,7 @@ function buildLaporanMakalah(all, p){
     });
     html += '</tbody></table>';
   } else {
-    html += '<p>Tidak terdapat kegiatan pemanggilan orang tua pada periode ini.</p>';
+    html += '<p>Tidak terdapat kegiatan Pertemuan orang tua pada periode ini.</p>';
   }
 
   html += '<h3>G. Catatan Kasus</h3>';
@@ -5006,7 +5006,7 @@ function buildLaporanMakalah(all, p){
   if(kelompok.length) html += '<li>Bimbingan Kelompok: <b>'+kelompok.length+'</b> kali kegiatan.</li>';
   if(konseling.length) html += '<li>Konseling Individual: <b>'+konseling.length+'</b> sesi dengan siswa penerima layanan.</li>';
   if(kr.length) html += '<li>Home Visit: <b>'+kr.length+'</b> kunjungan ke rumah siswa.</li>';
-  if(panggilan.length) html += '<li>Pemanggilan Orang Tua: <b>'+panggilan.length+'</b> kali pertemuan dengan orang tua / wali.</li>';
+  if(panggilan.length) html += '<li>Pertemuan Orang Tua: <b>'+panggilan.length+'</b> kali pertemuan dengan orang tua / wali.</li>';
   if(kasus.length) html += '<li>Catatan Kasus: <b>'+kasus.length+'</b> kasus yang tercatat dan ditangani.</li>';
   if(konferensi.length) html += '<li>Konferensi Kasus: <b>'+konferensi.length+'</b> kali konferensi bersama pihak terkait.</li>';
   if(alihtangan.length) html += '<li>Alih Tangan Kasus: <b>'+alihtangan.length+'</b> kasus dialihkan ke pihak yang berwenang.</li>';
@@ -5020,7 +5020,7 @@ function buildLaporanMakalah(all, p){
   html += '<p>Dari seluruh kegiatan yang telah dilaksanakan, dapat dianalisis beberapa hal sebagai berikut:</p>';
   html += '<ol>';
   html += '<li><b>Ketercapaian layanan dasar:</b> Layanan bimbingan klasikal dan kelompok sebagai layanan dasar telah dilaksanakan'+(klasikal.length?' dengan '+klasikal.length+' sesi klasikal':'')+(kelompok.length?' dan '+kelompok.length+' sesi kelompok':'')+'. Layanan ini menjadi fondasi pencegahan dan pengembangan bagi seluruh peserta didik. Rasio antara jumlah kelas dan frekuensi layanan klasikal menjadi indikator keterjangkauan layanan.</li>';
-  html += '<li><b>Penanganan kasus individual:</b> Terdapat '+(konseling.length + kr.length + panggilan.length + kasus.length + konferensi.length + alihtangan.length)+' kegiatan yang bersifat responsif untuk menangani permasalahan siswa secara individual, mulai dari konseling, home visit, pemanggilan orang tua, hingga konferensi kasus dan alih tangan kasus. Tingginya angka kegiatan responsif mengindikasikan bahwa siswa merasa nyaman untuk berkonsultasi dengan Guru BK.</li>';
+  html += '<li><b>Penanganan kasus individual:</b> Terdapat '+(konseling.length + kr.length + panggilan.length + kasus.length + konferensi.length + alihtangan.length)+' kegiatan yang bersifat responsif untuk menangani permasalahan siswa secara individual, mulai dari konseling, home visit, Pertemuan orang tua, hingga konferensi kasus dan alih tangan kasus. Tingginya angka kegiatan responsif mengindikasikan bahwa siswa merasa nyaman untuk berkonsultasi dengan Guru BK.</li>';
   html += '<li><b>Data kedisiplinan:</b> Tercatat '+izin.length+' perizinan keluar dan '+telat.length+' kejadian keterlambatan. Data ini menjadi perhatian untuk pembinaan kedisiplinan pada periode berikutnya, khususnya bagi siswa dengan frekuensi tertinggi.</li>';
   html += '<li><b>Presensi:</b> Dari total '+(hadirAgg.H+hadirAgg.S+hadirAgg.I+hadirAgg.A)+' entri presensi, tercatat '+hadirAgg.S+' sakit, '+hadirAgg.I+' izin, dan '+hadirAgg.A+' alpa. Angka alpa menjadi fokus perhatian untuk ditindaklanjuti melalui koordinasi dengan wali kelas dan orang tua / wali siswa.</li>';
   html += '<li><b>Keseimbangan layanan:</b> Perbandingan antara layanan preventif (klasikal, kelompok) dan layanan responsif (konseling, home visit) perlu dijaga keseimbangannya. Idealnya, porsi layanan preventif lebih besar untuk menekan angka permasalahan siswa.</li>';
@@ -5048,7 +5048,7 @@ function buildLaporanMakalah(all, p){
   html += '<p>Evaluasi ketercapaian program dilakukan dengan membandingkan antara rencana program dengan realisasi pelaksanaan layanan. Adapun hasil evaluasi dapat dijabarkan sebagai berikut:</p>';
   html += '<ol>';
   html += '<li><b>Layanan Dasar (Bimbingan Klasikal dan Kelompok):</b> Ketercapaian '+((klasikal.length + kelompok.length) > 0 ? 'terlaksana' : 'belum terlaksana')+' dengan total '+((klasikal.length + kelompok.length))+' kegiatan. Layanan dasar ini perlu terus ditingkatkan agar setiap kelas dapat menerima layanan secara rutin dan terjadwal.</li>';
-  html += '<li><b>Layanan Responsif (Konseling, Home Visit, Pemanggilan OT):</b> Terlaksana dengan total '+((konseling.length + kr.length + panggilan.length))+' kegiatan. Layanan ini telah merespons kebutuhan peserta didik secara cepat dan tepat.</li>';
+  html += '<li><b>Layanan Responsif (Konseling, Home Visit, Pertemuan OT):</b> Terlaksana dengan total '+((konseling.length + kr.length + panggilan.length))+' kegiatan. Layanan ini telah merespons kebutuhan peserta didik secara cepat dan tepat.</li>';
   html += '<li><b>Layanan Perencanaan Individual dan Dukungan Sistem:</b> Terlaksana melalui kegiatan catatan anekdot, konferensi kasus, alih tangan kasus, dan kegiatan lain-lain dengan total '+((anekdot.length + konferensi.length + alihtangan.length + lainlain.length))+' kegiatan.</li>';
   html += '<li><b>Keterjangkauan Layanan:</b> Dari '+kelasSaya().length+' kelas yang menjadi tanggung jawab Guru BK'+(kelasSaya().length?' dengan total '+totalSiswaAmpu+' siswa':'')+', seluruhnya telah menerima layanan bimbingan dan konseling sesuai dengan kebutuhannya.</li>';
   html += '</ol>';
@@ -5083,7 +5083,7 @@ function buildLaporanMakalah(all, p){
   html += '<ol>';
   html += '<li>Pelaksanaan layanan bimbingan dan konseling pada periode '+esc(p.label)+' telah berjalan sesuai program dengan total <b>'+totalKegiatan+'</b> kegiatan yang mencakup layanan dasar, responsif, perencanaan individual, dan dukungan sistem.</li>';
   html += '<li>Layanan bimbingan klasikal, kelompok, dan konseling individual telah dilaksanakan secara terprogram dan berkesinambungan sesuai dengan kebutuhan peserta didik.</li>';
-  html += '<li>Penanganan kasus siswa dilakukan melalui berbagai pendekatan mulai dari konseling, home visit, pemanggilan orang tua, konferensi kasus, hingga alih tangan kasus sesuai tingkat permasalahan siswa.</li>';
+  html += '<li>Penanganan kasus siswa dilakukan melalui berbagai pendekatan mulai dari konseling, home visit, Pertemuan orang tua, konferensi kasus, hingga alih tangan kasus sesuai tingkat permasalahan siswa.</li>';
   html += '<li>Data kedisiplinan dan presensi siswa menjadi bahan evaluasi untuk pembinaan pada periode berikutnya, khususnya bagi siswa dengan frekuensi izin, keterlambatan, dan alpa yang tinggi.</li>';
   html += '<li>Evaluasi ketercapaian program menunjukkan tingkat ketercapaian pada kategori '+(totalKegiatan >= 20 ? 'sangat baik' : totalKegiatan >= 10 ? 'baik' : totalKegiatan >= 5 ? 'cukup' : 'perlu ditingkatkan')+', namun masih terdapat aspek yang perlu diperbaiki pada periode berikutnya.</li>';
   html += '<li>Layanan bimbingan dan konseling memberikan dampak positif bagi peserta didik, baik dalam aspek akademik, sosial, pribadi, karier, maupun kedisiplinan.</li>';
@@ -5178,7 +5178,7 @@ function renderRekapKegiatanReport(all, p){
   var jenisFilter = ST.cache.rpRekapJenis || '';
   var allEvts = gabunganSemuaKegiatan(all, p);
   var evts = jenisFilter ? allEvts.filter(function(e){ return e.jenis === jenisFilter; }) : allEvts;
-  var jenisOptions = ['', 'Bimbingan Klasikal', 'Bimbingan Kelompok', 'Home Visit', 'Konseling Individual', 'Pemanggilan OT', 'Kasus', 'Konferensi Kasus', 'Alih Tangan Kasus', 'Catatan Anekdot', 'Lain-Lain'];
+  var jenisOptions = ['', 'Bimbingan Klasikal', 'Bimbingan Kelompok', 'Home Visit', 'Konseling Individual', 'Pertemuan OT', 'Kasus', 'Konferensi Kasus', 'Alih Tangan Kasus', 'Catatan Anekdot', 'Lain-Lain'];
   var filterBar = '<div class="fbar" style="margin-bottom:12px">'+
     '<div class="fg" style="max-width:300px"><label>Jenis Kegiatan</label>'+
     '<select id="rpRekapJenis" onchange="rpRekapJenisChange(this.value)">'+
@@ -5278,7 +5278,7 @@ function gabunganSemuaKegiatan(all, p){
   (all[SH.KELOMPOK]||[]).filter(isKelompokOwner).forEach(function(r){ var anggota = String(r.Anggota||'').split(';').map(function(x){ return x.trim(); }).filter(Boolean); push(String(r.Tanggal||''), 'Bimbingan Kelompok', r.Kelas, 'Topik: '+(r.Topik||'-')+' | '+anggota.length+' siswa', 'kelompok', r.ID); });
   (all[SH.KR]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Home Visit', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'kr', r.ID); });
   (all[SH.KONSELING]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Konseling Individual', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'konseling', r.ID); });
-  (all[SH.PANGGILAN]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Pemanggilan OT', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'panggilan', r.ID); });
+  (all[SH.PANGGILAN]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Pertemuan OT', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'panggilan', r.ID); });
   (all[SH.KASUS]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Kasus', r.Kelas, (r.Nama||'')+' | '+(r.Deskripsi||'-'), 'kasus', r.ID); });
   (all[SH.KONFERENSI]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Konferensi Kasus', r.Kelas, (r.Nama||'')+' | '+(r.JudulKasus||'-'), 'konferensi', r.ID); });
   (all[SH.ALIHTANGAN]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Alih Tangan Kasus', r.Kelas, (r.Nama||'')+' | '+(r.TujuanAlih||'-'), 'alihtangan', r.ID); });
