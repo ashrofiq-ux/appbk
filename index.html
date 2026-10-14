@@ -221,12 +221,13 @@ tr.rawan-t4 .tag{background:#fdecea;color:#c0392b}
 .presensi-chip:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .presensi-chip .mark{font-weight:900;font-size:13px}
 .dash-list{max-height:220px;overflow-y:auto}
-.dash-fab{position:fixed;right:20px;bottom:88px;display:flex;flex-direction:column;gap:9px;z-index:140;align-items:flex-end}
+/* FAB jurnal harian di KIRI BAWAH */
+.dash-fab{position:fixed;left:20px;bottom:20px;display:flex;flex-direction:column;gap:9px;z-index:140;align-items:flex-start}
 .dash-fab .fab{background:#1a73e8;color:#fff;border-radius:26px;padding:11px 18px;font-size:13px;font-weight:700;box-shadow:0 6px 18px rgba(26,115,232,.4);display:inline-flex;align-items:center;gap:8px;transition:.18s;border:none;cursor:pointer}
 .dash-fab .fab:hover{transform:translateY(-2px);background:#155ab6}
 .dash-fab .fab.jurnal{background:#27ae60;box-shadow:0 6px 18px rgba(39,174,96,.4)}
 .dash-fab .fab.jurnal:hover{background:#1e8449}
-@media(max-width:600px){.dash-fab{right:14px;bottom:80px}.dash-fab .fab{padding:10px 14px;font-size:12px}}
+@media(max-width:600px){.dash-fab{left:14px;bottom:14px}.dash-fab .fab{padding:10px 14px;font-size:12px}}
 .toc-table{border:none;width:100%;font-size:12.5pt}
 .toc-table td{border:none;padding:4px 0;vertical-align:top}
 .toc-table td:last-child{text-align:right;width:70px;font-weight:600}
@@ -356,12 +357,35 @@ body.dark .dash-fab .fab{box-shadow:0 6px 18px rgba(0,0,0,.5)}
 body.dark .err{background:#3a1717;color:#f59a8e}
 body.dark .rpsub{color:#7d8f9f}
 
-/* Kartu compact siswa tidak masuk - dikelompok per status */
+/* ==== SISWA TIDAK MASUK — GRID BERKOLOM ==== */
 .absent-card{background:#fff;border-radius:12px;padding:11px 14px;box-shadow:0 1px 4px rgba(16,42,67,.08);margin-bottom:10px}
 .absent-card h2{font-size:13.5px;color:#0f4c81;margin-bottom:2px}
-.absent-card .sub{font-size:11px;color:#8494a4;margin-bottom:7px}
-.absent-line{font-size:12px;line-height:1.55;margin-bottom:2px;font-weight:400;color:#20303f}
-.absent-line .lbl{color:#5a6b7c;font-weight:400}
+.absent-card .sub{font-size:11px;color:#8494a4;margin-bottom:8px}
+.absent-grid-cols{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:8px;
+}
+.absent-kelas-block{
+  background:#f7fafd;
+  border:1px solid #e8eff7;
+  border-left:3px solid #1a73e8;
+  border-radius:8px;
+  padding:7px 10px;
+  font-size:11.5px;
+  line-height:1.45;
+}
+.absent-kelas-head{
+  font-size:12px;
+  color:#0f4c81;
+  font-weight:600;
+  margin-bottom:3px;
+  padding-bottom:3px;
+  border-bottom:1px dashed #e3eaf2;
+}
+.absent-kelas-head .cnt{color:#8494a4;font-weight:400;font-size:10.5px}
+.absent-line{font-size:11.5px;line-height:1.45;margin-bottom:1px;font-weight:400;color:#20303f}
+.absent-line .lbl{font-weight:400}
 .absent-line .lbl-s{color:#b9770e}
 .absent-line .lbl-i{color:#1a73e8}
 .absent-line .lbl-a{color:#c0392b}
@@ -369,8 +393,10 @@ body.dark .rpsub{color:#7d8f9f}
 body.dark .absent-card{background:#16202b}
 body.dark .absent-card h2{color:#7fb8f5}
 body.dark .absent-card .sub{color:#7d8f9f}
+body.dark .absent-kelas-block{background:#131d28;border-color:#243442;border-left-color:#5fa8f5}
+body.dark .absent-kelas-head{color:#7fb8f5;border-bottom-color:#243442}
+body.dark .absent-kelas-head .cnt{color:#7d8f9f}
 body.dark .absent-line{color:#cfdbe8}
-body.dark .absent-line .lbl{color:#8ba0b3}
 body.dark .absent-line .lbl-s{color:#f5c97a}
 body.dark .absent-line .lbl-i{color:#5fa8f5}
 body.dark .absent-line .lbl-a{color:#f59a8e}
@@ -513,7 +539,6 @@ var FIELD_MAP = {
                      Catatan:'catatan', Status:'status', TindakLanjut:'tindak_lanjut' },
   CatatanAnekdot: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', Kelas:'kelas',
                     Catatan:'catatan', TindakLanjut:'tindak_lanjut', Keterangan:'keterangan' },
-  /* === Lain-Lain: tambah Petugas untuk filter kepemilikan === */
   LainLain: { ID:'id', Tanggal:'tanggal', Kegiatan:'judul', Anggota:'nama', Keterangan:'keterangan', Petugas:'petugas' }
 };
 
@@ -1189,6 +1214,11 @@ function shiftDate(dateStr, delta){
   d.setDate(d.getDate() + delta);
   return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
 }
+function toProperCase(s){
+  return String(s||'').toLowerCase().split(/\s+/).map(function(w){
+    return w ? w.charAt(0).toUpperCase() + w.substring(1) : '';
+  }).join(' ');
+}
 
 function applyTheme(){
   var dark = false;
@@ -1820,18 +1850,16 @@ function isJurnalOwner(row){
   }
   return true;
 }
-/* === Filter kepemilikan kegiatan BK (Bimbingan Kelompok & Lain-Lain) === */
 function isKegiatanOwner(row){
   if(!row) return false;
   var owner = String(row.Petugas||'').trim();
-  if(!owner) return true; /* data lama tanpa petugas: tampil */
+  if(!owner) return true;
   if(ST.user && ST.user.role === 'admin') return true;
   if(ST.user && ST.user.role === 'gurubk'){
     return owner === String(currentPetugasName()).trim();
   }
   return true;
 }
-/* Alias untuk kompatibilitas kode lama */
 function isKelompokOwner(row){ return isKegiatanOwner(row); }
 
 function ttdGuruBKHTML(tanggalStr){
@@ -2093,7 +2121,6 @@ var COLS = {
     {k:'TindakLanjut',l:'Tindak Lanjut',f:function(v){return (v||'').slice(0,50);}},
     {k:'Keterangan',l:'Keterangan',f:function(v){return (v||'').slice(0,40);}}
   ],
-  /* Lain-Lain: tambah kolom Petugas */
   lainlain:[
     {k:'Tanggal',l:'Tanggal',f:tgl},
     {k:'Kegiatan',l:'Kegiatan'},
@@ -2106,7 +2133,6 @@ var COLS = {
     {k:'Keterangan',l:'Keterangan'}
   ]
 };
-/* === KOLOM KHUSUS UNTUK TAMPILAN PER SISWA (VIEW) === */
 var COLS_PERSISWA = {
   anekdot: [
     {k:'Tanggal',l:'Tanggal',f:tgl},
@@ -2114,7 +2140,6 @@ var COLS_PERSISWA = {
     {k:'TindakLanjut',l:'Tindak Lanjut',f:function(v){return esc(v||'-');}},
     {k:'Keterangan',l:'Keterangan',f:function(v){return esc(v||'-');}}
   ],
-  /* Konseling view: kolom JenisLayanan DIHAPUS */
   konseling: [
     {k:'Tanggal',l:'Tanggal',f:tgl},
     {k:'Masalah',l:'Permasalahan',f:function(v){return esc(v||'-');}},
@@ -2124,7 +2149,6 @@ var COLS_PERSISWA = {
     {k:'Rencana',l:'Rencana Tindak Lanjut',f:function(v){return esc(v||'-');}}
   ]
 };
-/* === KOLOM UNTUK CETAK PER SISWA (PRINT) — Konseling tetap menampilkan Jenis Layanan === */
 var COLS_PERSISWA_PRINT = {
   anekdot: COLS_PERSISWA.anekdot,
   konseling: [
@@ -2378,38 +2402,43 @@ function renderDashboard(){
     html += '<div class="dash-stat p"><div class="n">'+belumKembali.length+'</div><div class="l">Izin Belum<br>Kembali</div></div>';
     html += '</div>';
 
-    /* ====== SISWA TIDAK MASUK HARI INI — dikelompok per Sakit / Izin / Alpa ====== */
+    /* ====== SISWA TIDAK MASUK — GRID BERKOLOM (auto-fill) ====== */
     if(!isPiket){
       var tidakMasuk = hadir.filter(function(r){
         return r.Status === 'S' || r.Status === 'I' || r.Status === 'A';
       });
       html += '<div class="absent-card" style="border-left:4px solid '+(tidakMasuk.length?'#e74c3c':'#27ae60')+'">';
       html += '<h2>🚫 Siswa Tidak Masuk Hari Ini</h2>';
-      html += '<div class="sub">'+tidakMasuk.length+' siswa total</div>';
+      html += '<div class="sub">'+tidakMasuk.length+' siswa total • dikelompokkan per kelas</div>';
       if(tidakMasuk.length){
-        var byStatus = {S:[], I:[], A:[]};
+        /* Group per kelas, lalu per status S/I/A */
+        var byKelas = {};
         tidakMasuk.forEach(function(r){
-          if(byStatus[r.Status]) byStatus[r.Status].push(r);
+          var k = String(r.Kelas||'').trim() || 'Tanpa Kelas';
+          if(!byKelas[k]) byKelas[k] = {S:[], I:[], A:[], total:0};
+          if(byKelas[k][r.Status]){
+            byKelas[k][r.Status].push(r);
+            byKelas[k].total++;
+          }
         });
-        var statusMeta = [
-          {st:'S', label:'Sakit', cls:'lbl-s'},
-          {st:'I', label:'Izin',  cls:'lbl-i'},
-          {st:'A', label:'Alpa',  cls:'lbl-a'}
-        ];
-        var anyShown = false;
-        statusMeta.forEach(function(meta){
-          var list = byStatus[meta.st];
-          if(!list.length) return;
-          anyShown = true;
-          list.sort(function(a,b){ return String(a.Nama||'').localeCompare(String(b.Nama||'')); });
-          var names = list.map(function(r){
-            var nm = String(r.Nama||'').trim();
-            var kl = String(r.Kelas||'').trim();
-            return nm + (kl ? ' ('+kl+')' : '');
-          }).join(', ');
-          html += '<div class="absent-line"><span class="lbl '+meta.cls+'">'+meta.label+' ('+list.length+'):</span> <span class="names">'+esc(names)+'</span></div>';
+        var kelasKeys = Object.keys(byKelas).sort();
+
+        html += '<div class="absent-grid-cols">';
+        kelasKeys.forEach(function(k){
+          var data = byKelas[k];
+          html += '<div class="absent-kelas-block">';
+          html += '<div class="absent-kelas-head">'+esc(k)+' <span class="cnt">('+data.total+' siswa)</span></div>';
+          ['S','I','A'].forEach(function(st){
+            var list = data[st];
+            if(!list.length) return; /* data nol tidak ditampilkan */
+            list.sort(function(a,b){ return String(a.Nama||'').localeCompare(String(b.Nama||'')); });
+            var names = list.map(function(r){ return toProperCase(String(r.Nama||'').trim()); }).join(', ');
+            var cls = st === 'S' ? 'lbl-s' : st === 'I' ? 'lbl-i' : 'lbl-a';
+            html += '<div class="absent-line"><span class="lbl '+cls+'">'+st+' ('+list.length+'):</span> <span class="names">'+esc(names)+'</span></div>';
+          });
+          html += '</div>';
         });
-        if(!anyShown){ html += '<div class="hint">Tidak ada data.</div>'; }
+        html += '</div>';
       } else {
         html += '<div class="empty" style="padding:14px">Semua siswa hadir hari ini. 👍</div>';
       }
@@ -2450,6 +2479,7 @@ function renderDashboard(){
       html += '</div>';
     }
 
+    /* === FAB jurnal harian di KIRI BAWAH === */
     html += '<div class="dash-fab">';
     if(isGuruBK || ST.user.role === 'admin'){
       html += '<button class="fab jurnal" onclick="dashInputJurnal()">📔 Jurnal Harian</button>';
@@ -3290,7 +3320,6 @@ function renderSiswa(){
   var ksList = kelasSaya();
   var curKelas = ST.cache['siswa_kelas'];
   if(curKelas === undefined || curKelas === null){
-    /* Default: kelas paling bawah */
     curKelas = ksList.length ? ksList[ksList.length - 1] : '';
     ST.cache['siswa_kelas'] = curKelas;
   }
@@ -3438,7 +3467,6 @@ function prosesImportSiswa(){
 
 /* ================= JURNAL HARIAN ================= */
 function renderJurnal(){
-  /* Default tampilan awal jurnal = rentang 3 hari terakhir (jika belum diatur) */
   if(!ST.cache['per_jurnal_mode']){
     ST.cache['per_jurnal_mode'] = 'rentang';
     var dEnd = new Date();
@@ -4172,7 +4200,6 @@ var KEG_CFG = {
   lainlain:{sheet:SH.LAINLAIN, judul:'📌 Lain-Lain', sub:'Kegiatan BK lainnya'}
 };
 
-/* === TAB STATE UNTUK MENU ANEKDOT & KONSELING === */
 var KEG_TAB = { anekdot:'daftar', konseling:'daftar' };
 
 function renderKegiatan(key){
@@ -4307,7 +4334,6 @@ function renderPerSiswaContent(key, nis, rows){
     identityHTML + tableHTML;
 }
 
-/* === IDENTITAS SISWA === */
 function buildIdentitasSiswaHTML(s){
   var jkLabel = s.JK === 'L' ? 'Laki-laki' : s.JK === 'P' ? 'Perempuan' : '-';
   var rows = [
@@ -4353,7 +4379,6 @@ function cetakPerSiswa(key){
   if(!s) return toast('Data siswa tidak ditemukan','er');
 
   var judul = key === 'anekdot' ? 'CATATAN ANEKDOT SISWA' : 'RIWAYAT KONSELING INDIVIDUAL';
-  /* Gunakan versi PRINT: untuk konseling tetap menampilkan Jenis Layanan */
   var cols = COLS_PERSISWA_PRINT[key] || COLS_PERSISWA[key];
   var identHTML = buildIdentitasSiswaPrintHTML(s);
 
@@ -4370,7 +4395,6 @@ function cetakPerSiswa(key){
   }
   tbl += '</tbody></table>';
 
-  /* Sesuai permintaan: tanpa "Total: X catatan" di bawah judul */
   var content = '<h2 class="rptitle">'+esc(judul)+'</h2>'+
     identHTML + tbl;
   printRaw(judul, content, ttdGuruBKHTML(tglAkhir));
@@ -4397,7 +4421,6 @@ function formKegiatan(key, id, preset){
   var data = id ? (ST.cache[key]||[]).find(function(r){ return r.ID===id; }) : null;
   if(!data && preset) data = preset;
   var formHTML = buildForm(key, data);
-  /* Admin bisa pilih Guru BK Pelaksana pada Bimbingan Kelompok & Lain-Lain */
   if(key === 'kelompok' || key === 'lainlain'){
     if(ST.user && ST.user.role === 'admin'){
       var currentPetugas = (data && data.Petugas) || '';
@@ -4482,7 +4505,6 @@ function filterKegiatan(key){
   if(key === 'klasikal' || key === 'kelompok') promises.push(getHadirRowsRange(dari, sampai).catch(function(){ return []; }));
   Promise.all(promises).then(function(res){
     var rows = res[0] || [];
-    /* === Filter kepemilikan untuk Bimbingan Kelompok & Lain-Lain === */
     if(key === 'kelompok' || key === 'lainlain'){
       rows = rows.filter(isKegiatanOwner);
     }
@@ -5591,7 +5613,6 @@ function gabunganSemuaKegiatan(all, p){
     evts.push({ tanggal: tglStr, jenis: jenis, kelas: kelasRow.join(', '), detail: detail, key: key, id: id });
   }
   (all[SH.KLASIKAL]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Bimbingan Klasikal', r.Kelas, 'Kelas '+(r.Kelas||'-')+' | Topik: '+(r.Topik||'-'), 'klasikal', r.ID); });
-  /* Bimbingan Kelompok & Lain-Lain: filter by owner untuk gurubk */
   (all[SH.KELOMPOK]||[]).filter(isKegiatanOwner).forEach(function(r){ var anggota = String(r.Anggota||'').split(';').map(function(x){ return x.trim(); }).filter(Boolean); push(String(r.Tanggal||''), 'Bimbingan Kelompok', r.Kelas, 'Topik: '+(r.Topik||'-')+' | '+anggota.length+' siswa', 'kelompok', r.ID); });
   (all[SH.KR]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Home Visit', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'kr', r.ID); });
   (all[SH.KONSELING]||[]).forEach(function(r){ push(String(r.Tanggal||''), 'Konseling Individual', r.Kelas, (r.Nama||'')+' | '+(r.Masalah||'-'), 'konseling', r.ID); });
