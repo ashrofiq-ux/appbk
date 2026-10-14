@@ -193,10 +193,16 @@ tr.rawan-t4 .tag{background:#fdecea;color:#c0392b}
 .wa-btn:hover{background:#1da851;color:#fff}
 .wa-btn svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
 .jbtn{padding:2px 8px;font-size:11px;border-radius:5px;line-height:1.4;vertical-align:middle;margin-left:4px}
+/* === Floating buttons kanan bawah === */
 .back-float{position:fixed;right:20px;bottom:20px;width:54px;height:54px;border-radius:50%;background:#1a73e8;color:#fff;font-size:22px;font-weight:700;box-shadow:0 6px 20px rgba(26,115,232,.45);z-index:150;display:none;align-items:center;justify-content:center;padding:0;border:none;cursor:pointer;transition:.18s;line-height:1}
 .back-float:hover{background:#155ab6;transform:scale(1.06)}
 .back-float:active{transform:scale(.95)}
 .back-float.on{display:flex}
+.jurnal-float{position:fixed;right:84px;bottom:20px;height:54px;border-radius:27px;background:#27ae60;color:#fff;font-size:13px;font-weight:700;box-shadow:0 6px 20px rgba(39,174,96,.45);z-index:150;display:none;align-items:center;justify-content:center;padding:0 20px;border:none;cursor:pointer;transition:.18s;gap:6px;white-space:nowrap}
+.jurnal-float:hover{background:#1e8449;transform:scale(1.04)}
+.jurnal-float:active{transform:scale(.97)}
+.jurnal-float.on{display:inline-flex}
+@media(max-width:600px){.jurnal-float{right:80px;font-size:12px;padding:0 14px}.back-float{width:50px;height:50px}}
 
 .dash-head{background:linear-gradient(135deg,#0f4c81,#1a73e8);color:#fff;border-radius:12px;padding:11px 16px;text-align:center;margin-bottom:10px}
 .dash-head .who{font-size:11.5px;opacity:.85;letter-spacing:.5px;text-transform:uppercase}
@@ -221,13 +227,6 @@ tr.rawan-t4 .tag{background:#fdecea;color:#c0392b}
 .presensi-chip:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .presensi-chip .mark{font-weight:900;font-size:13px}
 .dash-list{max-height:220px;overflow-y:auto}
-/* FAB jurnal harian di KIRI BAWAH */
-.dash-fab{position:fixed;left:20px;bottom:20px;display:flex;flex-direction:column;gap:9px;z-index:140;align-items:flex-start}
-.dash-fab .fab{background:#1a73e8;color:#fff;border-radius:26px;padding:11px 18px;font-size:13px;font-weight:700;box-shadow:0 6px 18px rgba(26,115,232,.4);display:inline-flex;align-items:center;gap:8px;transition:.18s;border:none;cursor:pointer}
-.dash-fab .fab:hover{transform:translateY(-2px);background:#155ab6}
-.dash-fab .fab.jurnal{background:#27ae60;box-shadow:0 6px 18px rgba(39,174,96,.4)}
-.dash-fab .fab.jurnal:hover{background:#1e8449}
-@media(max-width:600px){.dash-fab{left:14px;bottom:14px}.dash-fab .fab{padding:10px 14px;font-size:12px}}
 .toc-table{border:none;width:100%;font-size:12.5pt}
 .toc-table td{border:none;padding:4px 0;vertical-align:top}
 .toc-table td:last-child{text-align:right;width:70px;font-weight:600}
@@ -353,7 +352,8 @@ body.dark .acc-chip{background:#14331f;color:#4ade80}
 body.dark .tst{box-shadow:0 8px 24px rgba(0,0,0,.5)}
 body.dark .back-float{background:#1a73e8;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 body.dark .back-float:hover{background:#155ab6}
-body.dark .dash-fab .fab{box-shadow:0 6px 18px rgba(0,0,0,.5)}
+body.dark .jurnal-float{background:#27ae60;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+body.dark .jurnal-float:hover{background:#1e8449}
 body.dark .err{background:#3a1717;color:#f59a8e}
 body.dark .rpsub{color:#7d8f9f}
 
@@ -435,6 +435,7 @@ body.dark .absent-line .names{color:#cfdbe8}
     <nav class="side" id="side"></nav>
     <main class="main" id="main"></main>
   </div>
+  <button id="jurnalFloat" class="jurnal-float" onclick="dashInputJurnal()" title="Input Jurnal Harian">📔 Jurnal Harian</button>
   <button id="backBtn" class="back-float" onclick="goBack()" title="Kembali ke halaman sebelumnya">←</button>
 </div>
 
@@ -471,7 +472,7 @@ var SH = {
   PANGGILAN:'PanggilanOT', KASUS:'CatatanKasus',
   JURNAL:'JurnalHarian',
   KONFERENSI:'KonferensiKasus', ALIHTANGAN:'AlihTanganKasus', ANEKDOT:'CatatanAnekdot',
-  LAINLAIN:'LainLain'
+  LAINLAIN:'LainLain', MUTASI:'Mutasi'
 };
 
 var TABLES = {
@@ -493,7 +494,8 @@ var TABLES = {
   KonferensiKasus:'bk_konferensi_kasus',
   AlihTanganKasus:'bk_alih_tangan_kasus',
   CatatanAnekdot:'bk_catatan_anekdot',
-  LainLain:'bk_lain_lain'
+  LainLain:'bk_lain_lain',
+  Mutasi:'bk_mutasi'
 };
 
 var FIELD_MAP = {
@@ -539,7 +541,10 @@ var FIELD_MAP = {
                      Catatan:'catatan', Status:'status', TindakLanjut:'tindak_lanjut' },
   CatatanAnekdot: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', Kelas:'kelas',
                     Catatan:'catatan', TindakLanjut:'tindak_lanjut', Keterangan:'keterangan' },
-  LainLain: { ID:'id', Tanggal:'tanggal', Kegiatan:'judul', Anggota:'nama', Keterangan:'keterangan', Petugas:'petugas' }
+  LainLain: { ID:'id', Tanggal:'tanggal', Kegiatan:'judul', Anggota:'nama', Keterangan:'keterangan', Petugas:'petugas' },
+  Mutasi: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', KelasAsal:'kelas_asal',
+            KelasTujuan:'kelas_tujuan', Jenis:'jenis', Alasan:'alasan',
+            Keterangan:'keterangan', Petugas:'petugas' }
 };
 
 function pkOf(sheet){
@@ -1039,11 +1044,11 @@ async function _apiImpl(action, payload){
         try{
           var dResp = await sb.from(tN).delete().gte(pk, '');
           if(dResp.error){
-            if(tN === 'bk_gurupiket' || tN === 'bk_lain_lain') continue;
+            if(tN === 'bk_gurupiket' || tN === 'bk_lain_lain' || tN === 'bk_mutasi') continue;
             throw dResp.error;
           }
         }catch(e){
-          if(tN === 'bk_gurupiket' || tN === 'bk_lain_lain') continue;
+          if(tN === 'bk_gurupiket' || tN === 'bk_lain_lain' || tN === 'bk_mutasi') continue;
           throw e;
         }
       }
@@ -1100,11 +1105,11 @@ async function _apiImpl(action, payload){
           try{
             var rIns = await sb.from(tName).upsert(ch4, { onConflict: pkOf(sheetName) });
             if(rIns.error){
-              if(tName === 'bk_gurupiket' || tName === 'bk_lain_lain') continue;
+              if(tName === 'bk_gurupiket' || tName === 'bk_lain_lain' || tName === 'bk_mutasi') continue;
               throw rIns.error;
             }
           }catch(e){
-            if(tName === 'bk_gurupiket' || tName === 'bk_lain_lain') continue;
+            if(tName === 'bk_gurupiket' || tName === 'bk_lain_lain' || tName === 'bk_mutasi') continue;
             throw e;
           }
         }
@@ -2067,9 +2072,15 @@ function goBack(){
 }
 function updateBackBtn(){
   var b = document.getElementById('backBtn');
-  if(!b) return;
-  if(ST.history && ST.history.length > 0) b.classList.add('on');
-  else b.classList.remove('on');
+  if(b){
+    if(ST.history && ST.history.length > 0) b.classList.add('on');
+    else b.classList.remove('on');
+  }
+  var jb = document.getElementById('jurnalFloat');
+  if(jb){
+    var showJurnal = ST.page === 'dashboard' && ST.user && (ST.user.role === 'gurubk' || ST.user.role === 'admin');
+    jb.classList.toggle('on', !!showJurnal);
+  }
 }
 
 var COLS = {
@@ -2334,6 +2345,7 @@ function renderDashboard(){
     htmlTamu += '<div style="font-size:14px;color:#5a6b7c;line-height:1.7">Selamat datang. Silakan pilih menu <b>Siswa Rawan</b> atau <b>Report</b> pada panel di samping untuk melihat data.</div>';
     htmlTamu += '</div>';
     $('#main').innerHTML = htmlTamu;
+    updateBackBtn();
     return;
   }
 
@@ -2358,7 +2370,6 @@ function renderDashboard(){
     var telat = telatAll.filter(inKelas);
     var hadir = hadirAll.filter(inKelas);
     var jurnalHariIni = jurnalAll.filter(function(r){ return String(r.Tanggal) === tglHariIni; });
-    var belumKembali = izin.filter(function(r){ return r.StatusKembali !== 'Kembali'; });
     var sakit = hadir.filter(function(r){ return r.Status === 'S'; }).length;
     var izinSiswa = hadir.filter(function(r){ return r.Status === 'I'; }).length;
     var alpa = hadir.filter(function(r){ return r.Status === 'A'; }).length;
@@ -2399,10 +2410,9 @@ function renderDashboard(){
       html += '<div class="dash-stat b"><div class="n">'+izinSiswa+'</div><div class="l">Siswa<br>Izin</div></div>';
       html += '<div class="dash-stat r"><div class="n">'+alpa+'</div><div class="l">Siswa<br>Alpa</div></div>';
     }
-    html += '<div class="dash-stat p"><div class="n">'+belumKembali.length+'</div><div class="l">Izin Belum<br>Kembali</div></div>';
     html += '</div>';
 
-    /* ====== SISWA TIDAK MASUK — GRID BERKOLOM (auto-fill) ====== */
+    /* ====== SISWA TIDAK MASUK — GRID BERKOLOM ====== */
     if(!isPiket){
       var tidakMasuk = hadir.filter(function(r){
         return r.Status === 'S' || r.Status === 'I' || r.Status === 'A';
@@ -2411,7 +2421,6 @@ function renderDashboard(){
       html += '<h2>🚫 Siswa Tidak Masuk Hari Ini</h2>';
       html += '<div class="sub">'+tidakMasuk.length+' siswa total • dikelompokkan per kelas</div>';
       if(tidakMasuk.length){
-        /* Group per kelas, lalu per status S/I/A */
         var byKelas = {};
         tidakMasuk.forEach(function(r){
           var k = String(r.Kelas||'').trim() || 'Tanpa Kelas';
@@ -2430,7 +2439,7 @@ function renderDashboard(){
           html += '<div class="absent-kelas-head">'+esc(k)+' <span class="cnt">('+data.total+' siswa)</span></div>';
           ['S','I','A'].forEach(function(st){
             var list = data[st];
-            if(!list.length) return; /* data nol tidak ditampilkan */
+            if(!list.length) return;
             list.sort(function(a,b){ return String(a.Nama||'').localeCompare(String(b.Nama||'')); });
             var names = list.map(function(r){ return toProperCase(String(r.Nama||'').trim()); }).join(', ');
             var cls = st === 'S' ? 'lbl-s' : st === 'I' ? 'lbl-i' : 'lbl-a';
@@ -2446,27 +2455,6 @@ function renderDashboard(){
     }
     /* ====== END SISWA TIDAK MASUK ====== */
 
-    html += '<div class="dash-card" style="border-left:4px solid '+(belumKembali.length?'#f39c12':'#27ae60')+'">';
-    html += '<h2>🚪 Izin Keluar — Belum Kembali</h2>';
-    html += '<div class="sub">'+belumKembali.length+' siswa belum konfirmasi kembali</div>';
-    if(belumKembali.length){
-      html += '<div class="tw dash-list"><table><thead><tr><th>Nama</th><th>Kelas</th><th>Jam</th><th>Alasan</th><th style="width:120px">Aksi</th></tr></thead><tbody>';
-      belumKembali.slice(0, 20).forEach(function(r){
-        html += '<tr>'+
-          '<td><b>'+esc(r.Nama)+'</b><br><span class="small">'+esc(r.NIS)+'</span></td>'+
-          '<td>'+esc(r.Kelas)+'</td>'+
-          '<td>'+esc(r.JamKeluar||'-')+'</td>'+
-          '<td>'+esc((r.Alasan||'').slice(0,30))+'</td>'+
-          '<td><button class="btn4 btn-sm" onclick="konfirmasiKembali(\''+r.ID+'\')">✔ Kembali</button></td>'+
-        '</tr>';
-      });
-      html += '</tbody></table></div>';
-      if(belumKembali.length > 20) html += '<div class="hint" style="margin-top:6px">Menampilkan 20 dari '+belumKembali.length+' data.</div>';
-    } else {
-      html += '<div class="empty" style="padding:18px">Tidak ada siswa yang belum kembali. 👍</div>';
-    }
-    html += '</div>';
-
     if(isGuruBK && jurnalHariIni.length && !isHariLibur(tglHariIni)){
       html += '<div class="dash-card" style="border-left:4px solid #27ae60">';
       html += '<h2>📔 Jurnal Harian Hari Ini</h2>';
@@ -2479,15 +2467,9 @@ function renderDashboard(){
       html += '</div>';
     }
 
-    /* === FAB jurnal harian di KIRI BAWAH === */
-    html += '<div class="dash-fab">';
-    if(isGuruBK || ST.user.role === 'admin'){
-      html += '<button class="fab jurnal" onclick="dashInputJurnal()">📔 Jurnal Harian</button>';
-    }
-    html += '</div>';
-
     $('#main').innerHTML = html;
-  }).catch(function(e){ $('#main').innerHTML = '<div class="card"><div class="empty">Gagal memuat: '+esc(e.message)+'</div></div>'; });
+    updateBackBtn();
+  }).catch(function(e){ $('#main').innerHTML = '<div class="card"><div class="empty">Gagal memuat: '+esc(e.message)+'</div></div>'; updateBackBtn(); });
 }
 
 /* ================= SETTING ================= */
@@ -3324,7 +3306,7 @@ function renderSiswa(){
     ST.cache['siswa_kelas'] = curKelas;
   }
   $('#main').innerHTML = '<div class="hd"><div><h2>👥 Daftar Siswa</h2><div class="sub">Kelola data siswa — nomor HP & kontak WhatsApp</div></div>'+
-    '<div class="tools"><button class="btn" onclick="formSiswa()">+ Tambah</button><button class="btn5" onclick="formImportSiswa()">📥 Import Excel/CSV</button><button class="btn4" onclick="exportSiswa()">⬇ Export</button></div></div>'+
+    '<div class="tools"><button class="btn" onclick="formSiswa()">+ Tambah</button><button class="btn5" onclick="formImportSiswa()">📥 Import Excel/CSV</button><button class="btn4" onclick="exportSiswa()">⬇ Export</button><button class="btn2" onclick="openMutasi()" title="Kelola siswa keluar / masuk (pindahan)">🔄 Mutasi Siswa</button></div></div>'+
     '<div class="stat" id="statSiswa"></div>'+
     '<div class="card"><div class="fbar">'+
       '<div class="fg"><label>Kelas</label><select id="sKelas" onchange="onSiswaKelasChange(this.value)">'+
@@ -3463,6 +3445,274 @@ function prosesImportSiswa(){
       bacaFileMentah(f).then(function(arr){ var rows = extractSiswaRows(arr); if(!rows.length) return toast('Tidak ada data valid','er'); kirim(rows); }).catch(function(e){ toast('Gagal baca: '+e.message,'er'); });
     } else { var rr = new FileReader(); rr.onload = function(){ parseText(rr.result); }; rr.readAsText(f, 'UTF-8'); }
   } else { var t = $('#impText').value; if(!t.trim()) return toast('Pilih file/tempel','er'); parseText(t); }
+}
+
+/* ================= MUTASI SISWA ================= */
+function openMutasi(){
+  ST.cache['mutasi_tab'] = ST.cache['mutasi_tab'] || 'keluar';
+  openModal('🔄 Mutasi Siswa', '<div id="mutasiWrap"><div class="empty">Memuat…</div></div>', '<button class="btn2" onclick="closeModal()">Tutup</button>', true);
+  renderMutasiContent();
+}
+function renderMutasiContent(){
+  var activeTab = ST.cache['mutasi_tab'] || 'keluar';
+  var tabs = [
+    {id:'keluar', label:'📤 Siswa Keluar'},
+    {id:'masuk', label:'📥 Siswa Masuk / Pindahan'},
+    {id:'riwayat', label:'📋 Riwayat Mutasi'}
+  ];
+  var html = '<div class="tabs">'+
+    tabs.map(function(t){ return '<button class="tab '+(t.id===activeTab?'on':'')+'" onclick="mutasiTabGo(\''+t.id+'\')">'+t.label+'</button>'; }).join('')+
+  '</div>';
+  html += '<div id="mutasiContent"></div>';
+  var wrap = document.getElementById('mutasiWrap');
+  if(!wrap) return;
+  wrap.innerHTML = html;
+  if(activeTab === 'keluar') renderMutasiKeluar();
+  else if(activeTab === 'masuk') renderMutasiMasuk();
+  else renderMutasiRiwayat();
+}
+function mutasiTabGo(t){
+  ST.cache['mutasi_tab'] = t;
+  renderMutasiContent();
+}
+function renderMutasiKeluar(){
+  var ks = kelasSaya();
+  var el = document.getElementById('mutasiContent');
+  if(!el) return;
+  var html = '<div class="notif edit">📤 Data siswa yang keluar akan <b>otomatis dihapus</b> dari daftar kelas dan tercatat di riwayat mutasi.</div>';
+  html += '<div class="row r2">';
+  html += '<div class="fg"><label>Tanggal Keluar <span style="color:#e74c3c">*</span></label><input type="date" id="mkTanggal" value="'+today()+'"></div>';
+  html += '<div class="fg"><label>Kelas <span style="color:#e74c3c">*</span></label><select id="mkKelas" onchange="mkOnKelasChange()"><option value="">-- Pilih Kelas --</option>'+
+    ks.map(function(k){ return '<option>'+esc(k)+'</option>'; }).join('')+'</select></div>';
+  html += '<div class="fg" style="grid-column:1/-1"><label>Siswa <span style="color:#e74c3c">*</span></label><select id="mkSiswa"><option value="">-- Pilih Kelas Dulu --</option></select></div>';
+  html += '<div class="fg" style="grid-column:1/-1"><label>Alasan Keluar <span style="color:#e74c3c">*</span></label><textarea id="mkAlasan" rows="3" placeholder="Contoh: Pindah domisili / Mutasi ke sekolah lain / Keluar karena alasan pribadi"></textarea></div>';
+  html += '<div class="fg" style="grid-column:1/-1"><label>Keterangan (opsional)</label><input id="mkKet" placeholder="Contoh: Nama sekolah tujuan"></div>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:9px;justify-content:flex-end">';
+  html += '<button class="btn2" onclick="mutasiTabGo(\'riwayat\')">Lihat Riwayat</button>';
+  html += '<button class="btn3" id="mkSimpanBtn" onclick="simpanMutasiKeluar()">📤 Proses Siswa Keluar</button>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+function mkOnKelasChange(){
+  var k = document.getElementById('mkKelas').value;
+  var sel = document.getElementById('mkSiswa');
+  if(!sel) return;
+  if(!k){ sel.innerHTML = '<option value="">-- Pilih Kelas Dulu --</option>'; return; }
+  var list = (ST.siswa||[]).filter(function(s){ return s.Kelas === k; }).sort(function(a,b){ return a.Nama.localeCompare(b.Nama); });
+  if(!list.length){ sel.innerHTML = '<option value="">(Tidak ada siswa di kelas ini)</option>'; return; }
+  sel.innerHTML = '<option value="">-- Pilih Siswa --</option>' + list.map(function(s){ return '<option value="'+esc(s.NIS)+'">'+esc(s.Nama)+' ('+esc(s.NIS)+')</option>'; }).join('');
+}
+async function simpanMutasiKeluar(){
+  var tgl = (document.getElementById('mkTanggal').value||'').trim();
+  var kelas = document.getElementById('mkKelas').value;
+  var nis = document.getElementById('mkSiswa').value;
+  var alasan = (document.getElementById('mkAlasan').value||'').trim();
+  var ket = (document.getElementById('mkKet').value||'').trim();
+  if(!tgl){ toast('Tanggal wajib diisi','er'); return; }
+  if(!kelas){ toast('Kelas wajib dipilih','er'); return; }
+  if(!nis){ toast('Siswa wajib dipilih','er'); return; }
+  if(!alasan){ toast('Alasan keluar wajib diisi','er'); return; }
+  var s = (ST.siswa||[]).find(function(x){ return String(x.NIS) === String(nis); });
+  if(!s){ toast('Data siswa tidak ditemukan','er'); return; }
+  var btn = document.getElementById('mkSimpanBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Memproses…'; }
+  try{
+    /* 1) Catat di bk_mutasi (jenis='keluar') */
+    var recMutasi = {
+      ID: uid(),
+      Tanggal: tgl,
+      NIS: s.NIS,
+      Nama: s.Nama,
+      KelasAsal: s.Kelas,
+      KelasTujuan: '',
+      Jenis: 'keluar',
+      Alasan: alasan,
+      Keterangan: ket,
+      Petugas: currentPetugasName() || 'Admin'
+    };
+    await api('saveRecord', { sheet: SH.MUTASI, data: recMutasi });
+    /* 2) Hapus dari bk_siswa */
+    await api('deleteSiswa', { nis: s.NIS });
+    toast('Siswa '+s.Nama+' berhasil diproses keluar');
+    await loadMaster(true);
+    if(btn){ btn.disabled = false; btn.textContent = '📤 Proses Siswa Keluar'; }
+    /* refresh form */
+    document.getElementById('mkSiswa').value = '';
+    document.getElementById('mkAlasan').value = '';
+    document.getElementById('mkKet').value = '';
+    renderSiswa();
+    /* redirect ke riwayat */
+    ST.cache['mutasi_tab'] = 'riwayat';
+    renderMutasiContent();
+  }catch(e){
+    console.error(e);
+    toast('Gagal proses siswa keluar: ' + (e.message || e), 'er');
+    if(btn){ btn.disabled = false; btn.textContent = '📤 Proses Siswa Keluar'; }
+  }
+}
+function renderMutasiMasuk(){
+  var ks = kelasSaya();
+  var el = document.getElementById('mutasiContent');
+  if(!el) return;
+  var html = '<div class="notif new">📥 Data siswa baru / pindahan akan <b>otomatis ditambahkan</b> ke kelas yang dipilih dan tercatat di riwayat mutasi.</div>';
+  html += '<div class="row r2">';
+  html += '<div class="fg"><label>Tanggal Masuk <span style="color:#e74c3c">*</span></label><input type="date" id="mmTanggal" value="'+today()+'"></div>';
+  html += '<div class="fg"><label>Kelas Tujuan <span style="color:#e74c3c">*</span></label><select id="mmKelas"><option value="">-- Pilih Kelas --</option>'+
+    ks.map(function(k){ return '<option>'+esc(k)+'</option>'; }).join('')+'</select></div>';
+  html += '<div class="fg"><label>NIS <span style="color:#e74c3c">*</span></label><input id="mmNis" placeholder="Nomor Induk Siswa" autocomplete="off"></div>';
+  html += '<div class="fg"><label>Nama Lengkap <span style="color:#e74c3c">*</span></label><input id="mmNama" placeholder="Nama siswa" autocomplete="off"></div>';
+  html += '<div class="fg"><label>Jenis Kelamin</label><select id="mmJk"><option value="">-</option><option value="L">Laki-laki (L)</option><option value="P">Perempuan (P)</option></select></div>';
+  html += '<div class="fg"><label>No. HP / WhatsApp</label><input id="mmHp" placeholder="08123456789" inputmode="tel"></div>';
+  html += '<div class="fg" style="grid-column:1/-1"><label>Alasan Masuk / Pindahan <span style="color:#e74c3c">*</span></label><textarea id="mmAlasan" rows="3" placeholder="Contoh: Pindahan dari SMA Negeri X / Siswa baru"></textarea></div>';
+  html += '<div class="fg" style="grid-column:1/-1"><label>Keterangan (opsional)</label><input id="mmKet" placeholder="Contoh: Nama sekolah asal"></div>';
+  html += '</div>';
+  html += '<div style="display:flex;gap:9px;justify-content:flex-end">';
+  html += '<button class="btn2" onclick="mutasiTabGo(\'riwayat\')">Lihat Riwayat</button>';
+  html += '<button class="btn4" id="mmSimpanBtn" onclick="simpanMutasiMasuk()">📥 Proses Siswa Masuk</button>';
+  html += '</div>';
+  el.innerHTML = html;
+}
+async function simpanMutasiMasuk(){
+  var tgl = (document.getElementById('mmTanggal').value||'').trim();
+  var kelas = document.getElementById('mmKelas').value;
+  var nis = (document.getElementById('mmNis').value||'').trim();
+  var nama = (document.getElementById('mmNama').value||'').trim();
+  var jk = document.getElementById('mmJk').value;
+  var hp = (document.getElementById('mmHp').value||'').trim();
+  var alasan = (document.getElementById('mmAlasan').value||'').trim();
+  var ket = (document.getElementById('mmKet').value||'').trim();
+  if(!tgl){ toast('Tanggal wajib diisi','er'); return; }
+  if(!kelas){ toast('Kelas tujuan wajib dipilih','er'); return; }
+  if(!nis){ toast('NIS wajib diisi','er'); return; }
+  if(!nama){ toast('Nama wajib diisi','er'); return; }
+  if(!alasan){ toast('Alasan masuk wajib diisi','er'); return; }
+  /* cek NIS sudah ada? */
+  var exist = (ST.siswa||[]).find(function(x){ return String(x.NIS) === String(nis); });
+  if(exist){
+    toast('NIS '+nis+' sudah terdaftar (nama: '+exist.Nama+'). Gunakan NIS lain atau kelola data yang ada.', 'er');
+    return;
+  }
+  var btn = document.getElementById('mmSimpanBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Memproses…'; }
+  try{
+    /* 1) Insert ke bk_siswa */
+    await api('saveSiswa', {
+      NIS: nis,
+      Nama: nama,
+      Kelas: kelas,
+      JK: jk || '',
+      NoHP: hp,
+      _old: null
+    });
+    /* 2) Catat di bk_mutasi (jenis='masuk') */
+    var recMutasi = {
+      ID: uid(),
+      Tanggal: tgl,
+      NIS: nis,
+      Nama: nama,
+      KelasAsal: '',
+      KelasTujuan: kelas,
+      Jenis: 'masuk',
+      Alasan: alasan,
+      Keterangan: ket,
+      Petugas: currentPetugasName() || 'Admin'
+    };
+    await api('saveRecord', { sheet: SH.MUTASI, data: recMutasi });
+    toast('Siswa '+nama+' berhasil dimasukkan ke kelas '+kelas);
+    await loadMaster(true);
+    if(btn){ btn.disabled = false; btn.textContent = '📥 Proses Siswa Masuk'; }
+    /* reset form */
+    document.getElementById('mmNis').value = '';
+    document.getElementById('mmNama').value = '';
+    document.getElementById('mmJk').value = '';
+    document.getElementById('mmHp').value = '';
+    document.getElementById('mmAlasan').value = '';
+    document.getElementById('mmKet').value = '';
+    renderSiswa();
+    ST.cache['mutasi_tab'] = 'riwayat';
+    renderMutasiContent();
+  }catch(e){
+    console.error(e);
+    toast('Gagal proses siswa masuk: ' + (e.message || e), 'er');
+    if(btn){ btn.disabled = false; btn.textContent = '📥 Proses Siswa Masuk'; }
+  }
+}
+function renderMutasiRiwayat(){
+  var el = document.getElementById('mutasiContent');
+  if(!el) return;
+  el.innerHTML = '<div class="empty">Memuat riwayat mutasi…</div>';
+  api('getData', { sheet: SH.MUTASI }).then(function(rows){
+    rows = rows || [];
+    rows.sort(function(a,b){ return String(b.Tanggal||'').localeCompare(String(a.Tanggal||'')); });
+    /* summary */
+    var totalKeluar = rows.filter(function(r){ return r.Jenis === 'keluar'; }).length;
+    var totalMasuk = rows.filter(function(r){ return r.Jenis === 'masuk'; }).length;
+    var stats = '<div class="stat" style="margin-bottom:12px">'+
+      '<div class="sc r"><div class="n">'+totalKeluar+'</div><div class="l">Siswa Keluar</div></div>'+
+      '<div class="sc g"><div class="n">'+totalMasuk+'</div><div class="l">Siswa Masuk</div></div>'+
+      '<div class="sc"><div class="n">'+rows.length+'</div><div class="l">Total Mutasi</div></div>'+
+    '</div>';
+    /* filter */
+    var filterBar = '<div class="fbar" style="margin-bottom:10px">'+
+      '<div class="fg" style="max-width:240px"><label>Jenis Mutasi</label>'+
+      '<select id="mrwJenis" onchange="renderMutasiRiwayat()">'+
+        '<option value="">Semua Jenis</option>'+
+        '<option value="keluar">Siswa Keluar</option>'+
+        '<option value="masuk">Siswa Masuk</option>'+
+      '</select></div>'+
+    '</div>';
+    var jenisFilter = ST.cache['mrw_jenis'] || '';
+    /* restore select state */
+    setTimeout(function(){ var sel = document.getElementById('mrwJenis'); if(sel) sel.value = jenisFilter; }, 0);
+    var filtered = jenisFilter ? rows.filter(function(r){ return r.Jenis === jenisFilter; }) : rows;
+    var html = stats + filterBar;
+    if(!filtered.length){
+      html += '<div class="empty">Belum ada riwayat mutasi siswa.</div>';
+    } else {
+      html += '<div class="tw"><table><thead><tr>'+
+        '<th style="width:44px">No</th><th>Tanggal</th><th>Jenis</th><th>NIS</th><th>Nama</th>'+
+        '<th>Kelas Asal</th><th>Kelas Tujuan</th><th>Alasan</th><th>Keterangan</th><th>Petugas</th>'+
+        '<th style="width:80px">Aksi</th></tr></thead><tbody>';
+      filtered.forEach(function(r,i){
+        var jenisTag = r.Jenis === 'keluar'
+          ? '<span class="tag tr">Keluar</span>'
+          : '<span class="tag tg">Masuk</span>';
+        html += '<tr>'+
+          '<td>'+(i+1)+'</td>'+
+          '<td>'+tgl(r.Tanggal)+'</td>'+
+          '<td>'+jenisTag+'</td>'+
+          '<td>'+esc(r.NIS||'-')+'</td>'+
+          '<td><b>'+esc(r.Nama||'-')+'</b></td>'+
+          '<td>'+esc(r.KelasAsal||'-')+'</td>'+
+          '<td>'+esc(r.KelasTujuan||'-')+'</td>'+
+          '<td style="white-space:pre-wrap">'+esc((r.Alasan||'-').slice(0,120))+'</td>'+
+          '<td>'+esc((r.Keterangan||'-').slice(0,60))+'</td>'+
+          '<td>'+esc(r.Petugas||'-')+'</td>'+
+          '<td class="right"><button class="btn3 btn-sm" onclick="hapusMutasi(\''+r.ID+'\')">Hapus</button></td>'+
+        '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    el.innerHTML = html;
+    /* attach onchange to save filter */
+    var sel = document.getElementById('mrwJenis');
+    if(sel){
+      sel.onchange = function(){ ST.cache['mrw_jenis'] = this.value; renderMutasiRiwayat(); };
+      sel.value = jenisFilter;
+    }
+  }).catch(function(e){
+    console.error(e);
+    el.innerHTML = '<div class="notif err">Gagal memuat riwayat: '+esc(e.message)+'<div class="hint" style="margin-top:6px">Pastikan tabel <code>bk_mutasi</code> sudah dibuat di Supabase.</div></div>';
+  });
+}
+function hapusMutasi(id){
+  confirmBox('Hapus data riwayat mutasi ini? (Data siswa tidak akan dikembalikan)', function(){
+    api('deleteRecord', { sheet: SH.MUTASI, id: id }).then(function(){
+      toast('Riwayat mutasi dihapus');
+      renderMutasiRiwayat();
+    }).catch(function(e){ toast(e.message,'er'); });
+  });
 }
 
 /* ================= JURNAL HARIAN ================= */
