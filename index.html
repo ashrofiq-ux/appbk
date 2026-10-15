@@ -391,6 +391,15 @@ body.dark .absent-line .names{color:#cfdbe8}
 body.dark .kontak-section{background:#131d28;border-color:#243442;border-left-color:#5fa8f5}
 body.dark .kontak-section h3{color:#7fb8f5}
 body.dark .kontak-info .ci{background:linear-gradient(135deg,#0a3055,#1a5fc0)}
+
+.kh-wa-icon{padding:5px 7px;min-width:30px;justify-content:center}
+.kh-wa-icon svg,.kh-wa-disabled svg{width:16px;height:16px;fill:currentColor;display:block}
+.kh-wa-disabled{display:inline-flex;align-items:center;justify-content:center;padding:5px 7px;background:#d8dde3;color:#7b8794;border-radius:6px;cursor:not-allowed}
+.wa-compact tbody tr:hover{background:#f7fbff}
+body.dark .wa-mark-note{color:#8ba0b3}
+body.dark .wa-class-title{color:#7fb8f5}
+body.dark .wa-class-title span{color:#8ba0b3!important}
+body.dark .wa-class-title+span{color:#8ba0b3}
 </style>
 </head>
 <body>
@@ -436,6 +445,7 @@ body.dark .kontak-info .ci{background:linear-gradient(135deg,#0a3055,#1a5fc0)}
 <script>
 var SUPABASE_URL = 'https://venqqfuaqtrzvdoshvln.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlbnFxZnVhcXRyenZkb3NodmxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0MDQ2ODMsImV4cCI6MjEwNjk4MDY4M30.1gVFCGvN9w_y2iy4gb8K1vwF3PLTcHUUdVynwfOqrv8';
+var SUPABASE_FN_URL = SUPABASE_URL + '/functions/v1/validate-wa';
 
 var LOGO_URL = 'https://www.smanklirong.sch.id/storage/school-identity/01M1GX0S27524DBWJKADF8FMCA.jpg';
 
@@ -482,7 +492,8 @@ var FIELD_MAP = {
   GuruBK: { ID:'id', Nama:'nama', NIP:'nip', KelasAmpu:'kelas_ampu', Username:'username', Password:'password', TtdBK:'ttd_bk' },
   GuruPiket: { ID:'id', Nama:'nama', NIP:'nip', Username:'username', Password:'password' },
   Siswa:  { NIS:'nis', Nama:'nama', Kelas:'kelas', JK:'jk', TanggalLahir:'tanggal_lahir', NoHP:'no_hp',
-            NamaAyah:'nama_ayah', NoHPAyah:'no_hp_ayah', NamaIbu:'nama_ibu', NoHPIbu:'no_hp_ibu' },
+            NamaAyah:'nama_ayah', NoHPAyah:'no_hp_ayah', NamaIbu:'nama_ibu', NoHPIbu:'no_hp_ibu',
+            StatusWASiswa:'wa_status_siswa', StatusWAAyah:'wa_status_ayah', StatusWAIbu:'wa_status_ibu' },
   Perizinan: { ID:'id', Tanggal:'tanggal', NIS:'nis', Nama:'nama', Kelas:'kelas', Alasan:'alasan',
                JamKeluar:'jam_keluar', JamKembali:'jam_kembali', StatusKembali:'status_kembali',
                Petugas:'petugas', Keterangan:'keterangan' },
@@ -619,8 +630,6 @@ async function _apiImpl(action, payload){
       var r = await sb.from('bk_users').select('*').eq('username', username).eq('password', password).maybeSingle();
       if(r.error) throw r.error;
       if(!r.data){
-        // Login siswa: nama depan + tanggal lahir (DATE Supabase: YYYY-MM-DD).
-        // Ambil kandidat berdasarkan awalan nama, lalu pastikan nama depan dan tanggal lahir cocok.
         var rs = await sb.from('bk_siswa').select('*').ilike('nama', username + '%');
         if(rs.error) throw rs.error;
         var siswaMatch = (rs.data || []).find(function(row){
@@ -673,15 +682,18 @@ async function _apiImpl(action, payload){
 
     case 'saveKontakSiswa': {
       if(!ST.user || ST.user.role !== 'siswa') throw new Error('Hanya siswa yang dapat menyimpan data ini');
+      var lockCheck = await sb.from('bk_kontrol_siswa').select('input_terkunci').eq('id',1).maybeSingle();
+      if(lockCheck.error) throw lockCheck.error;
+      if(lockCheck.data && lockCheck.data.input_terkunci) throw new Error('Input data siswa sedang dikunci oleh Administrator. Anda hanya dapat melihat data.');
       var nisKS = String(payload.NIS||'').trim();
       if(!nisKS) throw new Error('NIS tidak valid');
       if(String(ST.user.username) !== nisKS) throw new Error('Akses ditolak');
       var recKS = {};
-      if(payload.NoHP !== undefined)     recKS.no_hp      = formatPhoneForDB(payload.NoHP);
+      if(payload.NoHP !== undefined){ recKS.no_hp = formatPhoneForDB(payload.NoHP); recKS.wa_status_siswa = null; }
       if(payload.NamaAyah !== undefined) recKS.nama_ayah  = String(payload.NamaAyah||'').trim();
-      if(payload.NoHPAyah !== undefined) recKS.no_hp_ayah = formatPhoneForDB(payload.NoHPAyah);
+      if(payload.NoHPAyah !== undefined){ recKS.no_hp_ayah = formatPhoneForDB(payload.NoHPAyah); recKS.wa_status_ayah = null; }
       if(payload.NamaIbu !== undefined)  recKS.nama_ibu   = String(payload.NamaIbu||'').trim();
-      if(payload.NoHPIbu !== undefined)  recKS.no_hp_ibu  = formatPhoneForDB(payload.NoHPIbu);
+      if(payload.NoHPIbu !== undefined){ recKS.no_hp_ibu = formatPhoneForDB(payload.NoHPIbu); recKS.wa_status_ibu = null; }
       var rKS = await sb.from('bk_siswa').update(recKS).eq('nis', nisKS);
       if(rKS.error) throw rKS.error;
       var curKS = await sb.from('bk_siswa').select('*').eq('nis', nisKS).maybeSingle();
@@ -706,7 +718,8 @@ async function _apiImpl(action, payload){
         sb.from('bk_kelas').select('*').order('nama'),
         sb.from('bk_gurubk').select('*'),
         sb.from('bk_siswa').select('*'),
-        sb.from('bk_setting').select('*')
+        sb.from('bk_setting').select('*'),
+        sb.from('bk_kontrol_siswa').select('*').eq('id', 1).maybeSingle()
       ]);
       res.forEach(function(r){ if(r.error) throw r.error; });
       var kelas  = (res[0].data||[]).map(function(r){ return r.nama; }).filter(Boolean);
@@ -714,6 +727,7 @@ async function _apiImpl(action, payload){
       var siswa  = (res[2].data||[]).map(function(r){ return fromRow(SH.SISWA, r); });
       var setting = {};
       (res[3].data||[]).forEach(function(r){ setting[r.key] = r.value; });
+      setting.inputSiswaTerkunci = !!(res[4].data && res[4].data.input_terkunci);
       var gurupiket = [];
       try {
         var gpRes = await sb.from('bk_gurupiket').select('*');
@@ -872,6 +886,7 @@ async function _apiImpl(action, payload){
     }
 
     case 'saveSiswa': {
+      if(!ST.user || (ST.user.role !== 'admin' && ST.user.role !== 'gurubk')) throw new Error('Hanya Admin atau Guru BK yang dapat mengubah data siswa');
       var NIS = String(payload.NIS);
       var oldNis = payload._old ? String(payload._old) : null;
       if(oldNis && oldNis !== NIS){
@@ -883,14 +898,39 @@ async function _apiImpl(action, payload){
       if(payload.Kelas !== undefined)    recSS.kelas      = payload.Kelas || '';
       if(payload.JK !== undefined)       recSS.jk         = payload.JK || '';
       if(payload.TanggalLahir !== undefined) recSS.tanggal_lahir = payload.TanggalLahir || null;
-      if(payload.NoHP !== undefined)     recSS.no_hp      = formatPhoneForDB(payload.NoHP);
+      if(payload.NoHP !== undefined){ recSS.no_hp = formatPhoneForDB(payload.NoHP); recSS.wa_status_siswa = null; }
       if(payload.NamaAyah !== undefined) recSS.nama_ayah  = payload.NamaAyah || '';
-      if(payload.NoHPAyah !== undefined) recSS.no_hp_ayah = formatPhoneForDB(payload.NoHPAyah);
+      if(payload.NoHPAyah !== undefined){ recSS.no_hp_ayah = formatPhoneForDB(payload.NoHPAyah); recSS.wa_status_ayah = null; }
       if(payload.NamaIbu !== undefined)  recSS.nama_ibu   = payload.NamaIbu || '';
-      if(payload.NoHPIbu !== undefined)  recSS.no_hp_ibu  = formatPhoneForDB(payload.NoHPIbu);
+      if(payload.NoHPIbu !== undefined){ recSS.no_hp_ibu = formatPhoneForDB(payload.NoHPIbu); recSS.wa_status_ibu = null; }
       var rSS = await sb.from('bk_siswa').upsert(recSS, { onConflict:'nis' });
       if(rSS.error) throw rSS.error;
       return { ok:true };
+    }
+
+    case 'getSiswaInputLock': {
+      var lockRead = await sb.from('bk_kontrol_siswa').select('input_terkunci').eq('id',1).maybeSingle();
+      if(lockRead.error) throw lockRead.error;
+      return !!(lockRead.data && lockRead.data.input_terkunci);
+    }
+
+    case 'setSiswaInputLock': {
+      if(!ST.user || ST.user.role !== 'admin') throw new Error('Hanya Administrator yang dapat mengunci atau membuka input siswa');
+      var lockValue = !!payload.locked;
+      var lockSave = await sb.from('bk_kontrol_siswa').upsert({id:1,input_terkunci:lockValue,updated_at:new Date().toISOString()}, {onConflict:'id'});
+      if(lockSave.error) throw lockSave.error;
+      return {ok:true,locked:lockValue};
+    }
+
+    case 'setSiswaWaStatus': {
+      if(!ST.user || (ST.user.role !== 'admin' && ST.user.role !== 'gurubk')) throw new Error('Akses validasi WhatsApp ditolak');
+      var fieldMapWa = {siswa:'wa_status_siswa',ayah:'wa_status_ayah',ibu:'wa_status_ibu'};
+      var colWa = fieldMapWa[String(payload.target||'')];
+      if(!colWa) throw new Error('Jenis nomor WhatsApp tidak dikenal');
+      var statusWa = (payload.status === 'aktif' || payload.status === 'tidak_valid') ? payload.status : null;
+      var qWa = await sb.from('bk_siswa').update((function(){var o={};o[colWa]=statusWa;return o;})()).eq('nis',String(payload.nis||''));
+      if(qWa.error) throw qWa.error;
+      return {ok:true};
     }
 
     case 'deleteSiswa': {
@@ -1177,7 +1217,7 @@ function openModal(title, bodyHTML, footerHTML, wide){
 }
 function closeModal(){ $('#ov').classList.remove('on'); $('#modal').innerHTML=''; }
 function confirmBox(msg, cb){
-  openModal('Konfirmasi', '<p style="font-size:14px;line-height:1.6">'+esc(msg)+'</p>',
+  openModal('Konfirmasi', '<p style="font-size:14px;line-height:1.6;white-space:pre-wrap">'+esc(msg)+'</p>',
     '<button class="btn2" onclick="closeModal()">Batal</button><button class="btn3" id="cfmYes">Ya, Lanjutkan</button>');
   $('#cfmYes').onclick = function(){ closeModal(); cb(); };
 }
@@ -1829,6 +1869,7 @@ function startApp(){
     $('#whoTxt').textContent = 'Siswa — ' + (sMe.Nama || ST.user.username);
     buildMenu();
     ST.history = [];
+    api('getSiswaInputLock').then(function(locked){ ST.setting=ST.setting||{}; ST.setting.inputSiswaTerkunci=!!locked; if(ST.page==='inputhp') renderInputHP(); }).catch(function(){});
     go('inputhp');
     api('getMySiswa').then(function(me){
       if(me){
@@ -1987,9 +2028,11 @@ function updateBackBtn(){
 
 function renderInputHP(){
   var s = (ST.user && ST.user.siswa) || {};
+  var inputTerkunci = !!(ST.setting && ST.setting.inputSiswaTerkunci);
+  var roAttr = inputTerkunci ? ' readonly disabled' : ''; 
   var html = '<div class="hd"><div><h2>📱 Data Kontak Saya</h2><div class="sub">Lengkapi data kontak Anda dan orang tua / wali</div></div></div>';
   html += '<div class="card kontak-card">';
-  html += '<div class="notif info" style="margin-bottom:14px">✍️ Isi data di bawah ini dengan <b>lengkap dan benar</b>. Data digunakan untuk keperluan komunikasi sekolah dengan siswa dan orang tua / wali.</div>';
+  html += inputTerkunci ? '<div class="notif edit" style="margin-bottom:14px">🔒 <b>Input data sedang dikunci Administrator.</b> Anda hanya dapat melihat data kontak dan tidak dapat mengubahnya.</div>' : '<div class="notif info" style="margin-bottom:14px">✍️ Isi data di bawah ini dengan <b>lengkap dan benar</b>. Data digunakan untuk keperluan komunikasi sekolah dengan siswa dan orang tua / wali.</div>';
   html += '<div class="kontak-info">';
   html += '<div class="ci"><div class="l">NIS</div><div class="v">'+esc(s.NIS||'-')+'</div></div>';
   html += '<div class="ci"><div class="l">Nama Siswa</div><div class="v">'+esc(s.Nama||'-')+'</div></div>';
@@ -1997,22 +2040,22 @@ function renderInputHP(){
   html += '</div>';
   html += '<div class="kontak-section">';
   html += '<h3><span class="em">📱</span> Kontak Siswa</h3>';
-  html += '<div class="fg"><label>No. HP Siswa / WhatsApp</label><input id="hpSiswa" value="'+esc(s.NoHP||'')+'" placeholder="Contoh: 08123456789" inputmode="tel"></div>';
+  html += '<div class="fg"><label>No. HP Siswa / WhatsApp</label><input id="hpSiswa" value="'+esc(s.NoHP||'')+'" placeholder="Contoh: 08123456789" inputmode="tel"'+roAttr+'></div>';
   html += '</div>';
   html += '<div class="kontak-section" style="border-left-color:#f39c12">';
   html += '<h3><span class="em">👨</span> Data Ayah</h3>';
   html += '<div class="row r2">';
-  html += '<div class="fg"><label>Nama Ayah</label><input id="hpNamaAyah" value="'+esc(s.NamaAyah||'')+'" placeholder="Nama lengkap ayah"></div>';
-  html += '<div class="fg"><label>No. HP Ayah</label><input id="hpNoAyah" value="'+esc(s.NoHPAyah||'')+'" placeholder="Contoh: 08123456789" inputmode="tel"></div>';
+  html += '<div class="fg"><label>Nama Ayah</label><input id="hpNamaAyah" value="'+esc(s.NamaAyah||'')+'" placeholder="Nama lengkap ayah"'+roAttr+'></div>';
+  html += '<div class="fg"><label>No. HP Ayah</label><input id="hpNoAyah" value="'+esc(s.NoHPAyah||'')+'" placeholder="Contoh: 08123456789" inputmode="tel"'+roAttr+'></div>';
   html += '</div></div>';
   html += '<div class="kontak-section" style="border-left-color:#e84393">';
   html += '<h3><span class="em">👩</span> Data Ibu</h3>';
   html += '<div class="row r2">';
-  html += '<div class="fg"><label>Nama Ibu</label><input id="hpNamaIbu" value="'+esc(s.NamaIbu||'')+'" placeholder="Nama lengkap ibu"></div>';
-  html += '<div class="fg"><label>No. HP Ibu</label><input id="hpNoIbu" value="'+esc(s.NoHPIbu||'')+'" placeholder="Contoh: 08123456789" inputmode="tel"></div>';
+  html += '<div class="fg"><label>Nama Ibu</label><input id="hpNamaIbu" value="'+esc(s.NamaIbu||'')+'" placeholder="Nama lengkap ibu"'+roAttr+'></div>';
+  html += '<div class="fg"><label>No. HP Ibu</label><input id="hpNoIbu" value="'+esc(s.NoHPIbu||'')+'" placeholder="Contoh: 08123456789" inputmode="tel"'+roAttr+'></div>';
   html += '</div></div>';
   html += '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:8px">';
-  html += '<button class="btn" onclick="simpanKontakSiswa()">💾 Simpan Data</button>';
+  html += inputTerkunci ? '' : '<button class="btn" onclick="simpanKontakSiswa()">💾 Simpan Data</button>';
   html += '<button class="btn2" onclick="renderInputHP()">↺ Muat Ulang</button>';
   html += '</div>';
   html += '<div class="hint" style="margin-top:14px;padding:9px 12px;background:#f7fafd;border-radius:8px;border-left:3px solid #1a73e8">🔒 Data Anda tersimpan aman dan hanya digunakan untuk komunikasi sekolah.</div>';
@@ -2021,6 +2064,7 @@ function renderInputHP(){
   updateBackBtn();
 }
 function simpanKontakSiswa(){
+  if(ST.setting && ST.setting.inputSiswaTerkunci){ toast('Input data sedang dikunci Administrator','er'); return; }
   if(!ST.user || ST.user.role !== 'siswa'){ toast('Akses ditolak','er'); return; }
   var s = (ST.user && ST.user.siswa) || {};
   if(!s.NIS){ toast('Data siswa tidak ditemukan','er'); return; }
@@ -2882,23 +2926,404 @@ function konfirmasiImportLayanan(){
 /* ================= SISWA ================= */
 function renderSiswa(){
   var ksList = kelasSaya();
+  var inputSiswaTerkunci = !!(ST.setting && ST.setting.inputSiswaTerkunci);
   var curKelas = ST.cache['siswa_kelas'];
   if(curKelas === undefined || curKelas === null){
     curKelas = ksList.length ? ksList[ksList.length - 1] : '';
     ST.cache['siswa_kelas'] = curKelas;
   }
-  $('#main').innerHTML = '<div class="hd"><div><h2>👥 Daftar Siswa</h2><div class="sub">Kelola data siswa — nomor HP & kontak WhatsApp</div></div>'+
-    '<div class="tools"><button class="btn" onclick="formSiswa()">+ Tambah</button><button class="btn5" onclick="formImportSiswa()">📥 Import Excel/CSV</button><button class="btn4" onclick="exportSiswa()">⬇ Export</button><button class="btn2" onclick="openMutasi()" title="Kelola siswa keluar / masuk (pindahan)">🔄 Mutasi Siswa</button></div></div>'+
+  $('#main').innerHTML = '<div class="hd"><div><h2>👥 Daftar Siswa</h2><div class="sub">Kelola data identitas dan kelas siswa</div></div>'+
+    '<div class="tools"><button class="btn" onclick="formSiswa()">+ Tambah</button><button class="btn5" onclick="formImportSiswa()">📥 Import Excel/CSV</button><button class="btn4" onclick="exportSiswa()">⬇ Export</button><button class="btn2" onclick="openMutasi()" title="Kelola siswa keluar / masuk (pindahan)">🔄 Mutasi Siswa</button><button class="btn5" onclick="popupValidasiWA()">📱 Validasi No. WA</button>'+(ST.user && ST.user.role === 'admin' ? '<button id="btnKunciInputSiswa" class="'+(inputSiswaTerkunci?'btn':'btn2')+'" onclick="ubahKunciInputSiswa()" title="'+(inputSiswaTerkunci?'Input terkunci. Klik untuk membuka input siswa.':'Input terbuka. Klik untuk mengunci input siswa.')+'">'+(inputSiswaTerkunci?'🔓 Buka Input Siswa':'🔒 Kunci Input Siswa')+'</button>' : '')+'</div></div>'+
     '<div class="stat" id="statSiswa"></div>'+
     '<div class="card"><div class="fbar">'+
       '<div class="fg"><label>Kelas</label><select id="sKelas" onchange="onSiswaKelasChange(this.value)">'+
         '<option value=""'+(curKelas===''?' selected':'')+'>Semua</option>'+
         ksList.map(function(k){ return '<option '+(k===curKelas?'selected':'')+'>'+esc(k)+'</option>'; }).join('')+
       '</select></div>'+
-      '<div class="fg" style="flex:2"><label>Cari (Nama / NIS / No HP)</label><input id="sCari" oninput="tabelSiswa()" placeholder="Ketik nama, NIS, atau nomor HP…"></div>'+
+      '<div class="fg" style="flex:2"><label>Cari (Nama / NIS)</label><input id="sCari" oninput="tabelSiswa()" placeholder="Ketik nama atau NIS…"></div>'+
     '</div><div id="tblSiswa"></div></div>';
   tabelSiswa();
+  // Sinkronkan label tombol dengan status terkini yang tersimpan di Supabase.
+  if(ST.user && ST.user.role === 'admin'){
+    api('getSiswaInputLock').then(function(locked){
+      perbaruiTombolKunciInputSiswa(locked);
+    }).catch(function(e){ console.warn('Gagal membaca status kunci input siswa:', e); });
+  }
 }
+function statusWACell(s, target, phone){
+  if(!String(phone||'').trim()) return '<span title="Nomor HP belum diisi" style="font-weight:900;color:#dc2626;font-size:17px">−</span>';
+  var st = target==='siswa' ? s.StatusWASiswa : target==='ayah' ? s.StatusWAAyah : s.StatusWAIbu;
+  if(st === 'aktif') return '<span title="WhatsApp aktif/terhubung" style="font-weight:900;color:#16a34a;font-size:18px">✓</span>';
+  if(st === 'checking') return '<span title="Sedang diperiksa" style="font-weight:800;color:#b9770e;font-size:15px">⏳</span>';
+  return '<span title="Nomor terisi; WhatsApp belum/tidak terhubung atau belum diverifikasi" style="font-weight:900;color:#111827;font-size:18px">✓</span>';
+}
+
+function buildWACellHTML(s, target){
+  var phone = target==='siswa' ? s.NoHP : target==='ayah' ? s.NoHPAyah : s.NoHPIbu;
+  phone = String(phone||'').trim();
+  var st = target==='siswa' ? s.StatusWASiswa : target==='ayah' ? s.StatusWAAyah : s.StatusWAIbu;
+  if(!phone) return '<span title="Nomor HP belum diisi" style="font-weight:900;color:#dc2626;font-size:17px">−</span>';
+  if(st === 'checking') return '<span title="Sedang diperiksa" style="font-weight:800;color:#b9770e;font-size:15px">⏳</span>';
+  if(st === 'aktif') return '<span title="WhatsApp aktif/terhubung" style="font-weight:900;color:#16a34a;font-size:19px">✓</span>';
+  return '<span title="Nomor terisi; WhatsApp belum/tidak terhubung atau belum diverifikasi" style="font-weight:900;color:#111827;font-size:19px">✓</span>';
+}
+
+function popupValidasiWA(){
+  if(!ST.user || (ST.user.role!=='admin' && ST.user.role!=='gurubk')) return toast('Akses ditolak','er');
+  var all = (siswaSaya()||[]).slice().sort(function(a,b){
+    return String(a.Kelas||'').localeCompare(String(b.Kelas||'')) || String(a.Nama||'').localeCompare(String(b.Nama||''));
+  });
+  var grouped = {};
+  all.forEach(function(s){ var k=s.Kelas||'Tanpa Kelas'; (grouped[k]||(grouped[k]=[])).push(s); });
+  var kelasKeys = Object.keys(grouped).sort();
+  if(ST.cache.waFilterKelas && kelasKeys.indexOf(ST.cache.waFilterKelas)<0) ST.cache.waFilterKelas='';
+
+  function hitungProgress(){
+    var hp=0, aktif=0, belum=0;
+    all.forEach(function(s){
+      [['siswa',s.NoHP,s.StatusWASiswa],['ayah',s.NoHPAyah,s.StatusWAAyah],['ibu',s.NoHPIbu,s.StatusWAIbu]].forEach(function(x){
+        if(String(x[1]||'').trim()){
+          hp++;
+          if(x[2]==='aktif') aktif++; else belum++;
+        }
+      });
+    });
+    return { hp:hp, aktif:aktif, belum:belum };
+  }
+
+  function renderIsi(){
+    var prog = hitungProgress();
+    var selected = ST.cache.waFilterKelas || '';
+    var visibleKeys = selected ? kelasKeys.filter(function(k){ return k===selected; }) : kelasKeys;
+    var html = '<style>.wa-compact{min-width:560px!important;font-size:11px!important}.wa-compact th{padding:5px 6px!important;font-size:10px!important}.wa-compact td{padding:3px 6px!important;vertical-align:middle!important}.wa-status-cell{text-align:center;width:68px}.wa-filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:9px}.wa-class-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;font-weight:700;color:#0f4c81}.wa-class-tools{display:flex;gap:5px;align-items:center;flex-wrap:wrap}.wa-mark-note{font-size:10.5px;line-height:1.5;color:#5a6b7c;margin-top:5px}</style>';
+    html += '<div class="wa-filter-bar"><div style="min-width:180px;flex:1"><label style="margin-bottom:3px">Filter Kelas</label><select id="filterKelasWA" onchange="filterValidasiWAKelas(this.value)" style="padding:6px 8px;font-size:12px"><option value="">Semua kelas</option>'+
+      kelasKeys.map(function(k){ return '<option value="'+esc(k)+'"'+(selected===k?' selected':'')+'>'+esc(k)+'</option>'; }).join('')+
+      '</select></div><div class="small" style="align-self:flex-end;padding-bottom:7px">'+all.length+' siswa · '+prog.aktif+' WA aktif · '+prog.belum+' belum/tidak terhubung</div></div>';
+    html += '<div class="wa-mark-note"><b>Penanda:</b> <span style="color:#dc2626;font-weight:900">−</span> nomor kosong &nbsp; <span style="color:#111827;font-weight:900">✓</span> nomor terisi, belum/tidak terhubung &nbsp; <span style="color:#16a34a;font-weight:900">✓</span> WhatsApp aktif &nbsp; ⏳ sedang diperiksa</div>';
+    html += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin:8px 0 10px">'+
+      '<button class="btn5 btn-sm" onclick="pilihSemuaKelasWA(true)">☑ Pilih Semua</button>'+
+      '<button class="btn2 btn-sm" onclick="pilihSemuaKelasWA(false)">☐ Kosongkan</button>'+
+      '<button class="btn2 btn-sm" onclick="cetakKelasTerpilihWA()">🖨 Cetak Kelas Terpilih</button>'+
+      '<button class="btn4 btn-sm" onclick="cekKelasTerpilihWA()">🔍 Cek Terpilih</button>'+
+      '<button class="btn4 btn-sm" onclick="cekSemuaNomorWA()">🔍 Cek Semua Nomor</button></div>';
+
+    if(!visibleKeys.length){
+      html += '<div class="empty">Tidak ada data siswa pada filter kelas ini.</div>';
+    }
+    visibleKeys.forEach(function(k){
+      var kelasList = grouped[k];
+      var hpKelas=0, aktifKelas=0, belumKelas=0;
+      kelasList.forEach(function(s){
+        [['siswa',s.NoHP,s.StatusWASiswa],['ayah',s.NoHPAyah,s.StatusWAAyah],['ibu',s.NoHPIbu,s.StatusWAIbu]].forEach(function(x){
+          if(String(x[1]||'').trim()) { hpKelas++; if(x[2]==='aktif') aktifKelas++; else belumKelas++; }
+        });
+      });
+      var pctKelas = hpKelas ? Math.round(aktifKelas/hpKelas*100) : 0;
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 4px;padding:7px 9px;background:#f7fafd;border-left:3px solid #1a73e8;border-radius:6px">'+
+        '<div class="wa-class-title"><input type="checkbox" class="chkKelasWA" value="'+esc(k)+'" style="width:auto;margin:0"> Kelas '+esc(k)+' <span style="font-weight:400;color:#5a6b7c;font-size:10.5px">'+kelasList.length+' siswa · '+aktifKelas+'/'+hpKelas+' nomor aktif ('+pctKelas+'%)</span></div>'+
+        '<div class="wa-class-tools"><button class="btn4 btn-sm" data-kelas="'+esc(k)+'" onclick="cekKelasWABtn(this)">🔍 Cek Kelas</button></div></div>';
+      html += '<div class="tw" style="margin-bottom:9px"><table class="wa-compact" style="min-width:560px"><thead><tr><th style="width:35px">No</th><th style="width:85px">NIS</th><th>Nama Siswa</th><th class="wa-status-cell">WA Siswa</th><th class="wa-status-cell">WA Ayah</th><th class="wa-status-cell">WA Ibu</th><th style="width:90px;text-align:center">Cetak</th></tr></thead><tbody>';
+      kelasList.forEach(function(s,i){
+        html += '<tr><td>'+(i+1)+'</td><td>'+esc(s.NIS||'-')+'</td><td>'+esc(s.Nama||'-')+'</td>';
+        ['siswa','ayah','ibu'].forEach(function(target){
+          html += '<td id="waCell_'+esc(s.NIS)+'_'+target+'" class="wa-status-cell">'+buildWACellHTML(s,target)+'</td>';
+        });
+        if(i===0) html += '<td rowspan="'+kelasList.length+'" style="text-align:center;vertical-align:middle"><button class="btn2 btn-sm" data-kelas="'+esc(k)+'" onclick="cetakKelasWABtn(this)" title="Cetak daftar validasi kelas ini">🖨 Cetak</button></td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    });
+    var mb = document.querySelector('#modal .mb');
+    if(mb) mb.innerHTML = html;
+  }
+
+  ST.cache._waPopupRefresh = renderIsi;
+  openModal('📱 Validasi Nomor WhatsApp Siswa & Orang Tua', '<div id="waPopupBody"></div>', '<button class="btn2 btn-sm" onclick="closeModal()">Tutup</button>', true);
+  renderIsi();
+}
+function filterValidasiWAKelas(kelas){
+  ST.cache.waFilterKelas = kelas || '';
+  if(typeof ST.cache._waPopupRefresh === 'function') ST.cache._waPopupRefresh();
+}
+function cekKelasWABtn(btn){ cekPerKelasWA(btn.getAttribute('data-kelas')||''); }
+function cetakKelasWABtn(btn){ cetakValidasiWAKelas(btn.getAttribute('data-kelas')||''); }
+function cetakValidasiWAKelas(kelas){
+  cetakValidasiWABanyak([kelas]);
+}
+function cetakKelasTerpilihWA(){
+  var pilihan = Array.prototype.slice.call(document.querySelectorAll('.chkKelasWA:checked'))
+    .map(function(c){ return String(c.value); });
+  if(!pilihan.length) return toast('Pilih minimal satu kelas yang akan dicetak. Gunakan filter Semua kelas untuk memilih beberapa kelas.','er');
+  cetakValidasiWABanyak(pilihan);
+}
+function cetakValidasiWABanyak(kelasArr){
+  var semuaSiswa = siswaSaya() || [];
+  var unik = [];
+  (kelasArr || []).forEach(function(k){
+    k = String(k || 'Tanpa Kelas');
+    if(unik.indexOf(k) < 0) unik.push(k);
+  });
+  unik.sort(function(a,b){ return a.localeCompare(b, 'id'); });
+  if(!unik.length) return toast('Pilih minimal satu kelas yang akan dicetak.','er');
+
+  var halaman = [];
+  unik.forEach(function(kelas, pageIndex){
+    var rows = semuaSiswa.filter(function(s){
+      return String(s.Kelas || 'Tanpa Kelas') === kelas;
+    }).sort(function(a,b){ return String(a.Nama||'').localeCompare(String(b.Nama||''), 'id'); });
+    if(!rows.length) return;
+
+    // Ukuran huruf diperkecil secara bertahap agar satu kelas muat pada satu lembar A4 mendatar.
+    var fontPt = rows.length > 55 ? 5 : rows.length > 48 ? 5.5 : rows.length > 41 ? 6 : rows.length > 34 ? 6.5 : rows.length > 27 ? 7 : 8;
+    var html = '<section class="wa-print-class" style="font-size:'+fontPt+'pt;">';
+    html += '<h2>DAFTAR VALIDASI NOMOR WHATSAPP</h2>';
+    html += '<div class="sub">Kelas: '+esc(kelas)+' &nbsp; | &nbsp; Tanggal: '+esc(tglPanjang(today()))+' &nbsp; | &nbsp; Jumlah siswa: '+rows.length+'</div>';
+    html += '<table><thead><tr><th style="width:5%">No</th><th style="width:14%">NIS</th><th>Nama Siswa</th><th style="width:12%">WA Siswa</th><th style="width:12%">WA Ayah</th><th style="width:12%">WA Ibu</th></tr></thead><tbody>';
+    rows.forEach(function(s,i){
+      html += '<tr><td>'+(i+1)+'</td><td>'+esc(s.NIS||'-')+'</td><td>'+esc(s.Nama||'-')+'</td>';
+      [['siswa',s.NoHP,s.StatusWASiswa],['ayah',s.NoHPAyah,s.StatusWAAyah],['ibu',s.NoHPIbu,s.StatusWAIbu]].forEach(function(x){
+        var mark = !String(x[1]||'').trim()
+          ? '<span class="missing">−</span>'
+          : x[2]==='aktif' ? '<span class="active">✓</span>'
+          : x[2]==='checking' ? '<span class="checking">⏳</span>'
+          : '<span class="unknown">✓</span>';
+        html += '<td class="center">'+mark+'</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div class="legend"><span class="missing">−</span> Nomor kosong &nbsp; <span class="unknown">✓</span> Nomor terisi belum/tidak terhubung &nbsp; <span class="active">✓</span> WhatsApp aktif</div>';
+    html += '</section>';
+    halaman.push(html);
+  });
+  if(!halaman.length) return toast('Tidak ada data siswa pada kelas yang dipilih.','er');
+
+  var w = window.open('', '_blank');
+  if(!w) return toast('Popup cetak diblokir browser. Izinkan popup untuk mencetak.','er');
+  var css = '@page{size:A4 landscape;margin:7mm}' +
+    '*{box-sizing:border-box}' +
+    'html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111}' +
+    'body{font-size:8pt;line-height:1.05}' +
+    '.wa-print-class{width:100%;break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}' +
+    '.wa-print-class:last-child{break-after:auto;page-break-after:auto}' +
+    'h2{text-align:center;font-size:12pt;margin:0 0 4px}' +
+    '.sub{text-align:center;font-size:8pt;margin-bottom:7px}' +
+    'table{width:100%;border-collapse:collapse;table-layout:fixed}' +
+    'th,td{border:1px solid #555;padding:2px 3px;overflow-wrap:anywhere;vertical-align:middle}' +
+    'th{text-align:center;background:#edf2f7;font-weight:bold}' +
+    'td.center{text-align:center;font-size:1.25em}' +
+    '.missing{color:#dc2626;font-weight:bold}.unknown{color:#111827;font-weight:bold}.active{color:#16803c;font-weight:bold}.checking{color:#b9770e}' +
+    '.legend{font-size:8pt;margin-top:5px}' +
+    'tr{break-inside:avoid;page-break-inside:avoid}' +
+    '@media print{.wa-print-class{min-height:0}}';
+  var title = 'Validasi WA - ' + unik.join(', ');
+  w.document.write('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+css+'</style></head><body>'+halaman.join('')+'<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script></body></html>');
+  w.document.close();
+}
+
+// ============ EDGE FUNCTION CALLER ============
+async function cekWABatch(numbers, progressCb){
+  var CHUNK = 30;
+  var results = [];
+  for(var i=0; i<numbers.length; i+=CHUNK){
+    var chunk = numbers.slice(i, i+CHUNK);
+    try{
+      var res = await fetch(SUPABASE_FN_URL, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer ' + SUPABASE_ANON_KEY,
+          'apikey': SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ numbers: chunk })
+      });
+      if(!res.ok){
+        var errTxt = await res.text();
+        throw new Error('HTTP '+res.status+' — '+errTxt.slice(0,120));
+      }
+      var data = await res.json();
+      if(data && Array.isArray(data.results)) results = results.concat(data.results);
+      else throw new Error(data && data.error ? data.error : 'Respon tidak valid');
+    }catch(e){
+      console.error('[cekWA] batch error:', e);
+      chunk.forEach(function(c){ results.push({ nis:c.nis, target:c.target, phone:c.phone, valid:null, reason:e.message }); });
+    }
+    if(progressCb) progressCb(Math.min(i+CHUNK, numbers.length), numbers.length);
+  }
+  return results;
+}
+
+function pilihSemuaKelasWA(checked){
+  document.querySelectorAll('.chkKelasWA').forEach(function(c){ c.checked = !!checked; });
+}
+
+function getTasksWAByKelas(kelasArr){
+  var tasks = [];
+  (siswaSaya()||[]).forEach(function(s){
+    if(kelasArr.length && kelasArr.indexOf(String(s.Kelas)) < 0) return;
+    if(String(s.NoHP||'').trim() && s.StatusWASiswa !== 'aktif' && s.StatusWASiswa !== 'tidak_valid')
+      tasks.push({ nis:s.NIS, target:'siswa', phone:s.NoHP, nama:s.Nama, kelas:s.Kelas });
+    if(String(s.NoHPAyah||'').trim() && s.StatusWAAyah !== 'aktif' && s.StatusWAAyah !== 'tidak_valid')
+      tasks.push({ nis:s.NIS, target:'ayah', phone:s.NoHPAyah, nama:s.Nama, kelas:s.Kelas });
+    if(String(s.NoHPIbu||'').trim() && s.StatusWAIbu !== 'aktif' && s.StatusWAIbu !== 'tidak_valid')
+      tasks.push({ nis:s.NIS, target:'ibu', phone:s.NoHPIbu, nama:s.Nama, kelas:s.Kelas });
+  });
+  return tasks;
+}
+
+function cekPerKelasWA(kelas){
+  var tasks = getTasksWAByKelas([kelas]);
+  if(!tasks.length){ toast('Semua nomor di kelas '+kelas+' sudah terverifikasi 🎉', 'inf'); return; }
+  confirmBox(
+    '🔍 Cek Otomatis WhatsApp — Kelas '+kelas+'\n\n'+
+    'Jumlah nomor: '+tasks.length+'\n'+
+    'Perkiraan waktu: ± '+Math.ceil(tasks.length * 0.25)+' detik\n\n'+
+    'Proses berjalan otomatis. Nomor yang terhubung WhatsApp akan bercentang hijau. Lanjutkan?',
+    function(){ jalankanBatchWA(tasks, 'Kelas '+kelas); }
+  );
+}
+
+function cekKelasTerpilihWA(){
+  var checked = Array.prototype.slice.call(document.querySelectorAll('.chkKelasWA:checked')).map(function(c){ return c.value; });
+  if(!checked.length){ toast('Pilih minimal 1 kelas terlebih dahulu','er'); return; }
+  var tasks = getTasksWAByKelas(checked);
+  if(!tasks.length){ toast('Semua nomor di kelas terpilih sudah terverifikasi 🎉', 'inf'); return; }
+  confirmBox(
+    '🔍 Cek Otomatis WhatsApp\n\n'+
+    'Kelas: '+checked.join(', ')+'\n'+
+    'Jumlah nomor: '+tasks.length+'\n'+
+    'Perkiraan waktu: ± '+Math.ceil(tasks.length * 0.25)+' detik\n\nLanjutkan?',
+    function(){ jalankanBatchWA(tasks, checked.length+' kelas'); }
+  );
+}
+
+function cekSemuaNomorWA(){
+  var tasks = getTasksWAByKelas([]);
+  if(!tasks.length){ toast('Semua nomor sudah terverifikasi 🎉', 'inf'); return; }
+  var cakupan = ST.user && ST.user.role==='gurubk' ? 'Seluruh Kelas Ampu' : 'Seluruh Sekolah';
+  confirmBox(
+    '🔍 Cek Otomatis WhatsApp — '+cakupan.toUpperCase()+'\n\n'+
+    'Jumlah nomor: '+tasks.length+'\n'+
+    'Perkiraan waktu: ± '+Math.ceil(tasks.length * 0.25)+' detik\n\nLanjutkan?',
+    function(){ jalankanBatchWA(tasks, cakupan); }
+  );
+}
+
+async function jalankanBatchWA(tasks, label){
+  tasks.forEach(function(t){
+    var cell = document.getElementById('waCell_'+t.nis+'_'+t.target);
+    if(cell) cell.innerHTML = '<span title="Sedang diperiksa" style="font-size:15px;color:#b9770e">⏳</span>';
+  });
+
+  var panel = document.createElement('div');
+  panel.id = 'waBatchPanel';
+  panel.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;max-width:520px;margin:0 auto;background:#0f1720;color:#fff;padding:16px 20px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:9999;font-size:13px;font-family:inherit';
+  panel.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+      '<div style="font-weight:700">🔍 Cek WhatsApp — '+esc(label)+'</div>'+
+      '<button id="waBatchClose" style="background:transparent;color:#8ba0b3;font-size:18px;padding:0 6px;line-height:1">×</button>'+
+    '</div>'+
+    '<div style="background:#2a3a4a;height:8px;border-radius:4px;overflow:hidden;margin-bottom:10px"><div id="waBulkFill" style="background:#27ae60;height:100%;width:0%;transition:.3s"></div></div>'+
+    '<div id="waBulkTxt" style="font-size:11.5px;opacity:.85;line-height:1.5">0 / '+tasks.length+'</div>';
+  document.body.appendChild(panel);
+  document.getElementById('waBatchClose').onclick = function(){ panel.remove(); };
+
+  var results = await cekWABatch(tasks, function(done, total){
+    var pct = Math.round(done/total*100);
+    var fill = document.getElementById('waBulkFill'); if(fill) fill.style.width = pct+'%';
+    var txt = document.getElementById('waBulkTxt'); if(txt) txt.innerHTML = done+' / '+total+' ('+pct+'%)';
+  });
+
+  var ok=0, bad=0, unknown=0;
+  var updatesToSave = [];
+
+  for(var i=0; i<results.length; i++){
+    var r = results[i];
+    var s = (ST.siswa||[]).find(function(x){ return String(x.NIS) === String(r.nis); });
+    if(!s) continue;
+    var field = r.target==='siswa' ? 'StatusWASiswa' : r.target==='ayah' ? 'StatusWAAyah' : 'StatusWAIbu';
+
+    if(r.valid === true){ s[field] = 'aktif'; ok++; updatesToSave.push({ nis:r.nis, target:r.target, status:'aktif' }); }
+    else if(r.valid === false){ s[field] = 'tidak_valid'; bad++; updatesToSave.push({ nis:r.nis, target:r.target, status:'tidak_valid' }); }
+    else { s[field] = null; unknown++; }
+
+    var cell = document.getElementById('waCell_'+r.nis+'_'+r.target);
+    if(cell) cell.innerHTML = buildWACellHTML(s, r.target);
+  }
+
+  var CH = 10;
+  for(var j=0; j<updatesToSave.length; j+=CH){
+    var slice = updatesToSave.slice(j, j+CH);
+    await Promise.all(slice.map(function(u){
+      return api('setSiswaWaStatus', { nis:u.nis, target:u.target, status:u.status }).catch(function(e){ console.warn('save error', u, e); });
+    }));
+  }
+
+  try{ localStorage.removeItem('bk_master'); }catch(e){}
+
+  panel.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+      '<div style="font-weight:700">✅ Selesai — '+esc(label)+'</div>'+
+      '<button id="waBatchClose2" style="background:transparent;color:#8ba0b3;font-size:18px;padding:0 6px;line-height:1">×</button>'+
+    '</div>'+
+    '<div style="font-size:12.5px;line-height:1.8">'+
+      'Total diperiksa: <b>'+results.length+'</b><br>'+
+      '<span style="color:#4ade80">✓</span> Aktif: <b style="color:#4ade80">'+ok+'</b><br>'+
+      '<span style="color:#f59a8e">✗</span> Tidak terdaftar: <b style="color:#f59a8e">'+bad+'</b><br>'+
+      '<span style="color:#f5c97a">?</span> Tidak dapat diverifikasi: <b style="color:#f5c97a">'+unknown+'</b>'+
+    '</div>';
+  document.getElementById('waBatchClose2').onclick = function(){ panel.remove(); };
+  setTimeout(function(){
+    if(!panel.parentNode) return;
+    panel.style.opacity='0'; panel.style.transition='.5s';
+    setTimeout(function(){ panel.remove(); }, 600);
+  }, 6000);
+
+  toast('✅ '+label+': '+ok+' aktif, '+bad+' tidak terdaftar, '+unknown+' tidak diketahui');
+
+  setTimeout(function(){
+    if(typeof ST.cache._waPopupRefresh === 'function'){
+      try{ ST.cache._waPopupRefresh(); }catch(e){}
+    }
+  }, 500);
+}
+
+function perbaruiTombolKunciInputSiswa(locked){
+  ST.setting = ST.setting || {};
+  ST.setting.inputSiswaTerkunci = !!locked;
+  var btn = $('#btnKunciInputSiswa');
+  if(!btn) return;
+  btn.className = locked ? 'btn' : 'btn2';
+  btn.textContent = locked ? '🔓 Buka Input Siswa' : '🔒 Kunci Input Siswa';
+  btn.title = locked ? 'Input sedang terkunci. Klik untuk membuka input siswa.' : 'Input sedang terbuka. Klik untuk mengunci input siswa.';
+}
+function ubahKunciInputSiswa(){
+  if(!ST.user || ST.user.role !== 'admin') return toast('Fitur ini hanya untuk Administrator','er');
+  // Ambil nilai terkini dari database agar label dan tindakan tidak bergantung pada status lama di layar.
+  api('getSiswaInputLock').then(function(currentlyLocked){
+    currentlyLocked = !!currentlyLocked;
+    perbaruiTombolKunciInputSiswa(currentlyLocked);
+    var nextLocked = !currentlyLocked;
+    var prompt = currentlyLocked
+      ? 'Input data siswa saat ini TERKUNCI. Buka kembali agar siswa dapat mengubah data kontak?'
+      : 'Input data siswa saat ini TERBUKA. Kunci input agar siswa tidak dapat mengubah data kontak?';
+    confirmBox(prompt, function(){
+      api('setSiswaInputLock',{locked:nextLocked}).then(function(result){
+        var locked = result && typeof result.locked === 'boolean' ? result.locked : nextLocked;
+        perbaruiTombolKunciInputSiswa(locked);
+        try{ localStorage.removeItem('bk_master'); }catch(e){}
+        toast(locked ? 'Input data siswa berhasil dikunci' : 'Input data siswa berhasil dibuka');
+        renderSiswa();
+      }).catch(function(e){
+        toast('Gagal mengubah kunci: '+e.message,'er');
+        api('getSiswaInputLock').then(perbaruiTombolKunciInputSiswa).catch(function(){});
+      });
+    });
+  }).catch(function(e){
+    toast('Gagal membaca status kunci input siswa: '+e.message,'er');
+  });
+}
+
 function onSiswaKelasChange(v){ ST.cache['siswa_kelas'] = v; tabelSiswa(); }
 
 function tabelSiswa(){
@@ -2907,10 +3332,7 @@ function tabelSiswa(){
   var rows = siswaSaya();
   if(k) rows = rows.filter(function(s){ return s.Kelas===k; });
   if(c) rows = rows.filter(function(s){
-    return (s.Nama||'').toLowerCase().indexOf(c) >= 0
-        || String(s.NIS).indexOf(c) >= 0
-        || String(s.NoHP||'').replace(/[^\d]/g,'').indexOf(c.replace(/[^\d]/g,'')) >= 0
-        || String(s.NoHP||'').toLowerCase().indexOf(c) >= 0;
+    return (s.Nama||'').toLowerCase().indexOf(c) >= 0 || String(s.NIS||'').toLowerCase().indexOf(c) >= 0;
   });
   rows.sort(function(a,b){ return String(a.Kelas).localeCompare(String(b.Kelas)) || String(a.Nama).localeCompare(String(b.Nama)); });
   var total = rows.length;
@@ -2918,9 +3340,7 @@ function tabelSiswa(){
   var totalP = rows.filter(function(s){ return String(s.JK||'').toUpperCase() === 'P'; }).length;
   var belumJK = total - totalL - totalP;
   var totalHP = rows.filter(function(s){ return String(s.NoHP||'').trim() !== ''; }).length;
-  var totalLengkap = rows.filter(function(s){
-    return s.NoHP && s.NamaAyah && s.NoHPAyah && s.NamaIbu && s.NoHPIbu;
-  }).length;
+  var totalLengkap = rows.filter(function(s){ return s.NoHP && s.NamaAyah && s.NoHPAyah && s.NamaIbu && s.NoHPIbu; }).length;
   var statEl = $('#statSiswa');
   if(statEl){
     var judulStat = k ? 'Kelas '+k : 'Semua Kelas';
@@ -2928,42 +3348,25 @@ function tabelSiswa(){
       '<div class="sc b"><div class="n">'+total+'</div><div class="l">'+esc(judulStat)+' — Total Siswa</div></div>'+
       '<div class="sc g"><div class="n">'+totalL+'</div><div class="l">Laki-laki (L)</div></div>'+
       '<div class="sc pk"><div class="n">'+totalP+'</div><div class="l">Perempuan (P)</div></div>'+
-      '<div class="sc" style="border-left-color:#25D366"><div class="n">'+totalHP+'</div><div class="l">Punya No. HP</div></div>'+
+      '<div class="sc" style="border-left-color:#25D366"><div class="n">'+totalHP+'</div><div class="l">Memiliki Nomor HP</div></div>'+
       '<div class="sc" style="border-left-color:#8e44ad"><div class="n">'+totalLengkap+'</div><div class="l">Data Kontak Lengkap</div></div>'+
       (belumJK > 0 ? '<div class="sc y"><div class="n">'+belumJK+'</div><div class="l">Belum Diisi JK</div></div>' : '');
   }
   if(!rows.length){ el.innerHTML = '<div class="empty">Tidak ada data siswa.</div>'; return; }
-  var infoAtas = (!k) ? '<div class="notif info" style="margin-bottom:10px">📊 <b>Informasi Semua Kelas:</b> Total <b>'+total+'</b> siswa — Laki-laki: <b>'+totalL+'</b>, Perempuan: <b>'+totalP+'</b>'+(belumJK>0?' , Belum diisi JK: <b>'+belumJK+'</b>':'')+' • Ada No. HP: <b>'+totalHP+'</b> • Kontak lengkap: <b>'+totalLengkap+'</b></div>' : '';
-  var head = '<tr><th style="width:44px">No</th><th>NIS</th><th>Nama</th><th>Kelas</th><th style="width:52px">JK</th><th>Tanggal Lahir</th><th>No. HP</th><th style="width:230px">Aksi</th></tr>';
+  var infoAtas = (!k) ? '<div class="notif info" style="margin-bottom:10px">📊 <b>Informasi Semua Kelas:</b> Total <b>'+total+'</b> siswa — Laki-laki: <b>'+totalL+'</b>, Perempuan: <b>'+totalP+'</b>'+(belumJK>0?' , Belum diisi JK: <b>'+belumJK+'</b>':'')+'</div>' : '';
+  var head = '<tr><th style="width:44px">No</th><th>NIS</th><th>Nama</th><th>Kelas</th><th style="width:52px">JK</th><th>Tanggal Lahir</th><th style="width:170px">Aksi</th></tr>';
   var body = rows.map(function(s,i){
     var jkLabel = s.JK === 'L' ? '<span class="tag tb">L</span>' : s.JK === 'P' ? '<span class="tag" style="background:#fde6f1;color:#c2185b">P</span>' : '<span class="tag tgray">-</span>';
-    var hpRaw = String(s.NoHP||'').trim();
-    var hpCell;
-    if(hpRaw){
-      hpCell = '<span style="font-weight:600">'+esc(hpRaw)+'</span>';
-    } else {
-      hpCell = '<span class="tag tgray">Belum diisi</span>';
-    }
-    var waCell;
-    if(hpRaw){
-      var pesan = 'Assalamualaikum ' + (s.Nama||'') + ', ini dari BK.';
-      waCell = '<a class="wa-btn" href="'+esc(waLink(s.Nama, hpRaw, pesan))+'" target="_blank" rel="noopener" title="Kirim pesan WhatsApp">'+waIconSVG()+' WA</a>';
-    } else {
-      waCell = '<span class="wa-btn" style="background:#c8cdd3;cursor:not-allowed;opacity:.7" title="Nomor HP belum diisi">'+waIconSVG()+' WA</span>';
-    }
     var lengkap = (s.NoHP && s.NamaAyah && s.NoHPAyah && s.NamaIbu && s.NoHPIbu);
     var badgeLengkap = lengkap ? '' : ' <span class="tag ty" title="Data kontak belum lengkap" style="font-size:9.5px;padding:1px 6px">!</span>';
-    return '<tr><td>'+(i+1)+'</td><td>'+esc(s.NIS)+'</td><td><b>'+esc(s.Nama)+'</b>'+badgeLengkap+'</td><td>'+esc(s.Kelas)+'</td><td>'+jkLabel+'</td><td>'+esc(s.TanggalLahir||'-')+'</td><td>'+hpCell+'</td>'+
-      '<td class="right">'+waCell+
-        '<button class="btn5 btn-sm" onclick="detailSiswa(\''+esc(s.NIS)+'\')" title="Lihat detail lengkap">📋 Detail</button>'+
-        '<button class="btn2 btn-sm" onclick="formSiswa(\''+esc(s.NIS)+'\')" title="Edit data siswa">✏️ Edit</button>'+
-      '</td></tr>';
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(s.NIS)+'</td><td><b>'+esc(s.Nama)+'</b>'+badgeLengkap+'</td><td>'+esc(s.Kelas)+'</td><td>'+jkLabel+'</td><td>'+esc(s.TanggalLahir||'-')+'</td>'+
+      '<td class="right"><button class="btn5 btn-sm" onclick="detailSiswa(\''+esc(s.NIS)+'\')" title="Lihat detail lengkap">📋 Detail</button>'+
+      '<button class="btn2 btn-sm" onclick="formSiswa(\''+esc(s.NIS)+'\')" title="Edit data siswa">✏️ Edit</button></td></tr>';
   }).join('');
   el.innerHTML = infoAtas + '<div class="tw"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+
-  '<div class="hint" style="margin-top:9px">Total ditampilkan: <b>'+rows.length+'</b> siswa (L: <b>'+totalL+'</b>, P: <b>'+totalP+'</b>'+(belumJK>0?', belum diisi: <b>'+belumJK+'</b>':'')+') • Ada No. HP: <b>'+totalHP+'</b> • Kontak lengkap: <b>'+totalLengkap+'</b></div>';
+    '<div class="hint" style="margin-top:9px">Total ditampilkan: <b>'+rows.length+'</b> siswa (L: <b>'+totalL+'</b>, P: <b>'+totalP+'</b>'+(belumJK>0?', belum diisi: <b>'+belumJK+'</b>':'')+')</div>';
 }
 
-/* ================= FUNGSI BARU: detailSiswa() ================= */
 function detailSiswa(nis){
   var s = (ST.siswa||[]).find(function(x){ return String(x.NIS)===String(nis); });
   if(!s){ toast('Data siswa tidak ditemukan','er'); return; }
@@ -3561,6 +3964,7 @@ function renderKehadiran(){
   var tabs = [
     {id:'harian', label:'📅 Harian'},
     {id:'matriks', label:'📊 Absen Bulanan'},
+    {id:'daftar', label:'📋 Daftar Absensi Hari Ini'},
     {id:'laporan', label:'📈 Laporan'}
   ];
   $('#main').innerHTML = '<div class="hd"><div><h2>📋 Presensi</h2><div class="sub">Kelola presensi siswa</div></div>'+
@@ -3576,6 +3980,7 @@ function khTabGo(t){
   $$('.tabs .tab').forEach(function(b){ b.classList.toggle('on', b.dataset.tab === t); });
   if(t === 'harian') renderKhHarian();
   else if(t === 'matriks') renderKhMatriks();
+  else if(t === 'daftar') renderKhDaftar();
   else if(t === 'laporan') renderKhLaporan();
 }
 function renderKhHarian(){
@@ -3653,6 +4058,55 @@ function loadKhHarian(tglView){
     vEl.innerHTML = html;
   }).catch(function(e){ vEl.innerHTML = '<div class="empty">Gagal: '+esc(e.message)+'</div>'; });
 }
+function renderKhDaftar(){
+  var ks = (kelasSaya()||[]).slice().sort();
+  $('#khContent').innerHTML = '<div class="card"><div class="hd" style="margin-bottom:10px"><div><h2>📋 Daftar Absensi Hari Ini</h2><div class="sub">Siswa berstatus Sakit, Izin, atau Alpa pada '+esc(tglPanjang(today()))+'</div></div><div class="tools"><button class="btn2 btn-sm" onclick="loadKhDaftar(true)">↻ Perbarui</button></div></div>'+
+    '<div class="fbar" style="padding:8px 10px;margin-bottom:10px"><div class="fg" style="max-width:300px"><label>Kelas</label><select id="khDaftarKelas" onchange="loadKhDaftar(false)"><option value="">Semua kelas</option>'+ks.map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('')+'</select></div></div>'+
+    '<div id="khDaftarView"><div class="empty">Memuat daftar absensi hari ini…</div></div></div>';
+  loadKhDaftar(true);
+}
+function loadKhDaftar(forceRefresh){
+  var vEl = $('#khDaftarView'); if(!vEl) return;
+  var tanggal = today();
+  var filterKelas = $('#khDaftarKelas') ? $('#khDaftarKelas').value : '';
+  vEl.innerHTML = '<div class="empty">Memuat daftar absensi hari ini…</div>';
+  getHadirRowsRange(tanggal, tanggal, !!forceRefresh).then(function(rows){
+    rows = (rows||[]).filter(function(r){
+      var status = String(r.Status||'').toUpperCase();
+      return String(r.Tanggal||'').slice(0,10)===tanggal && ['S','I','A'].indexOf(status)>=0;
+    });
+    var ks = kelasSaya()||[];
+    rows = rows.filter(function(r){ return ks.indexOf(r.Kelas)>=0 && (!filterKelas || String(r.Kelas)===filterKelas); });
+    rows.sort(function(a,b){ return String(a.Kelas||'').localeCompare(String(b.Kelas||'')) || String(a.Nama||'').localeCompare(String(b.Nama||'')); });
+    var nS=rows.filter(function(r){return String(r.Status).toUpperCase()==='S';}).length;
+    var nI=rows.filter(function(r){return String(r.Status).toUpperCase()==='I';}).length;
+    var nA=rows.filter(function(r){return String(r.Status).toUpperCase()==='A';}).length;
+    var html = '<div class="stat" style="grid-template-columns:repeat(3,minmax(90px,1fr));gap:7px;margin-bottom:10px">'+
+      '<div class="sc y" style="padding:8px 11px"><div class="n" style="font-size:21px">'+nS+'</div><div class="l">Sakit</div></div>'+
+      '<div class="sc b" style="padding:8px 11px"><div class="n" style="font-size:21px">'+nI+'</div><div class="l">Izin</div></div>'+
+      '<div class="sc r" style="padding:8px 11px"><div class="n" style="font-size:21px">'+nA+'</div><div class="l">Alpa</div></div></div>';
+    if(!rows.length){
+      html += '<div class="empty">Tidak ada siswa dengan status Sakit, Izin, atau Alpa'+(filterKelas?' di kelas '+esc(filterKelas):'')+' yang tercatat hari ini.</div>';
+      vEl.innerHTML = html; return;
+    }
+    html += '<div class="tw"><table style="min-width:760px"><thead><tr><th style="width:38px">No</th><th style="width:85px">Kelas</th><th style="width:90px">NIS</th><th>Nama Siswa</th><th style="width:80px">Status</th><th>Keterangan</th><th style="width:62px;text-align:center">WhatsApp</th></tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      var siswa = (ST.siswa||[]).find(function(s){ return String(s.NIS)===String(r.NIS); }) || {};
+      var status = String(r.Status||'').toUpperCase();
+      var statusLabel = status==='S' ? '<span class="tag ty">Sakit</span>' : status==='I' ? '<span class="tag tb">Izin</span>' : '<span class="tag tr">Alpa</span>';
+      var nama = r.Nama || siswa.Nama || '-';
+      var ket = String(r.Keterangan||'').trim();
+      var nomor = String(siswa.NoHP||'').trim();
+      var labelStatus = status==='S' ? 'Sakit' : status==='I' ? 'Izin' : 'Alpa';
+      var pesan = 'Assalamu’alaikum '+nama+'. Kami dari BK SMAN 1 Klirong menghubungi terkait presensi hari ini ('+tglPanjang(tanggal)+'). Status presensi Anda tercatat: '+labelStatus+'. Keterangan: '+(ket||'tidak dicantumkan')+'. Mohon konfirmasi kepada pihak sekolah. Terima kasih.';
+      var wa = nomor ? '<a class="wa-btn kh-wa-icon" href="'+esc(waLink(nama,nomor,pesan))+'" target="_blank" rel="noopener" title="Hubungi '+esc(nama)+' melalui WhatsApp" aria-label="Hubungi melalui WhatsApp">'+waIconSVG()+'</a>' : '<span class="kh-wa-disabled" title="Nomor HP siswa belum diisi" aria-label="Nomor HP belum diisi">'+waIconSVG()+'</span>';
+      html += '<tr><td>'+(i+1)+'</td><td>'+esc(r.Kelas||siswa.Kelas||'-')+'</td><td>'+esc(r.NIS||'-')+'</td><td><b>'+esc(nama)+'</b></td><td>'+statusLabel+'</td><td style="white-space:pre-wrap">'+esc(ket||'-')+'</td><td style="text-align:center">'+wa+'</td></tr>';
+    });
+    html += '</tbody></table></div><div class="hint" style="margin-top:7px">Total siswa tidak masuk: <b>'+rows.length+'</b>. Tombol WhatsApp membuka pesan yang sudah disiapkan dan tetap perlu dikirim oleh pengguna.</div>';
+    vEl.innerHTML = html;
+  }).catch(function(e){ vEl.innerHTML = '<div class="notif err">Gagal memuat daftar absensi: '+esc(e.message)+'</div>'; });
+}
+
 function renderKhMatriks(){
   $('#khContent').innerHTML = '<div class="card"><h2>📊 Absen Bulanan Per Kelas</h2><div class="fbar">'+
     '<div class="fg"><label>Bulan</label><input type="month" id="mxBulan" value="'+today().slice(0,7)+'"></div>'+
@@ -3832,7 +4286,7 @@ function hapusHadir(id){
     api('deleteRecord',{sheet:SH.HADIR, id:id}).then(function(){
       invalidateCache(SH.HADIR); _hadirLoading = {};
       toast('Dihapus');
-      if(ST.khTab === 'daftar') loadKhDaftar(); else renderKehadiran();
+      if(ST.khTab === 'daftar') loadKhDaftar(true); else renderKehadiran();
     }).catch(function(e){ toast(e.message,'er'); });
   });
 }
@@ -5270,6 +5724,7 @@ function parseAbsenArray(arr, kelas, defaultBulan){
 
 document.addEventListener('DOMContentLoaded', async function(){
   console.log('[BK] Supabase URL =', SUPABASE_URL);
+  console.log('[BK] Edge Function URL =', SUPABASE_FN_URL);
   applyTheme();
   try{
     if(location.protocol.startsWith('http')){
