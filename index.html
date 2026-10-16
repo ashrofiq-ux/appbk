@@ -1608,9 +1608,82 @@ function renderTemplateWA(tpl, vars){
   return out;
 }
 
-/**
- * Kirim notifikasi WA presensi ke orang tua siswa berstatus S/I/A
- */
+/* ====== LOG ANTI-DUPLIKAT ====== */
+function waGetLog(){
+  try{
+    var raw = localStorage.getItem('bk_wa_log');
+    if(!raw) return {};
+    var obj = JSON.parse(raw);
+    if(!obj || typeof obj !== 'object') return {};
+    return obj;
+  }catch(e){ return {}; }
+}
+function waSaveLog(log){
+  try{ localStorage.setItem('bk_wa_log', JSON.stringify(log)); }catch(e){}
+}
+function waLogKey(tanggal, nis, target){ return tanggal + '||' + String(nis) + '||' + target; }
+
+function waWasSent(tanggal, nis, target, currentStatus){
+  var log = waGetLog();
+  var entry = log[waLogKey(tanggal, nis, target)];
+  if(!entry) return { sent: false };
+  if(currentStatus && entry.status && entry.status !== currentStatus){
+    return { sent: false, statusChanged: true, oldStatus: entry.status };
+  }
+  return { sent: true, entry: entry };
+}
+
+function waMarkSent(tanggal, nis, target, status, phone, extra){
+  var log = waGetLog();
+  log[waLogKey(tanggal, nis, target)] = Object.assign({
+    ts: Date.now(),
+    tanggal: tanggal,
+    nis: String(nis),
+    target: target,
+    status: status || '',
+    phone: phone || ''
+  }, extra || {});
+  waSaveLog(log);
+}
+
+function waGetLogForDate(tanggal){
+  var log = waGetLog();
+  var prefix = tanggal + '||';
+  var out = [];
+  Object.keys(log).forEach(function(k){
+    if(k.indexOf(prefix) === 0){
+      var parts = k.split('||');
+      out.push(Object.assign({ nis: parts[1], target: parts[2] }, log[k]));
+    }
+  });
+  return out;
+}
+function waGetLogDates(){
+  var log = waGetLog();
+  var dates = {};
+  Object.keys(log).forEach(function(k){
+    var d = k.split('||')[0];
+    if(!dates[d]) dates[d] = { tanggal: d, total: 0 };
+    dates[d].total++;
+  });
+  return Object.keys(dates).sort().reverse().map(function(d){ return dates[d]; });
+}
+function waClearLogForDate(tanggal){
+  var log = waGetLog();
+  var prefix = tanggal + '||';
+  var removed = 0;
+  Object.keys(log).forEach(function(k){
+    if(k.indexOf(prefix) === 0){ delete log[k]; removed++; }
+  });
+  waSaveLog(log);
+  return removed;
+}
+function waClearAllLog(){
+  var count = Object.keys(waGetLog()).length;
+  waSaveLog({});
+  return count;
+}
+
 async function kirimNotifikasiWAPresensi(rows, tanggal, options){
   options = options || {};
   var gatewayUrl = getWAGatewayUrl();
@@ -1627,25 +1700,17 @@ async function kirimNotifikasiWAPresensi(rows, tanggal, options){
     return { sent:0, failed:0, skipped:0, noTarget:true };
   }
 
-  var st = await cekStatusGatewayWA();
-  if(!st.ok){
-    if(!options.silent) toast('Gateway WA: ' + st.msg, 'er');
-    return { sent:0, failed:0, skipped:targets.length, error:st.msg };
-  }
-
   var tpl = (ST.setting && ST.setting.waTemplate) || defaultWaTemplate();
-  var delayMs = parseInt((ST.setting && ST.setting.waDelayMs) || '3000', 10);
-  if(isNaN(delayMs) || delayMs < 1000) delayMs = 3000;
   var tglTxt = tglPanjang(tanggal);
-
   var siswaMap = {};
   (ST.siswa||[]).forEach(function(s){ siswaMap[String(s.NIS)] = s; });
 
-  var messages = [];
+  var allMessages = [];
   targets.forEach(function(r){
     var s = siswaMap[String(r.NIS)];
     if(!s) return;
-    var statusLabel = r.Status==='S' ? 'Sakit' : r.Status==='I' ? 'Izin' : 'Alpa';
+    var stUp = String(r.Status||'').toUpperCase();
+    var statusLabel = stUp==='S' ? 'Sakit' : stUp==='I' ? 'Izin' : 'Alpa';
     var base = {
       '{nama}': r.Nama || s.Nama || '',
       '{nis}': r.NIS || s.NIS || '',
@@ -1656,20 +1721,53 @@ async function kirimNotifikasiWAPresensi(rows, tanggal, options){
     };
     if(String(s.NoHPAyah||'').trim()){
       var vA = Object.assign({}, base, { '{ortu}': 'Ayah ' + (s.NamaAyah || '') });
-      messages.push({ to: s.NoHPAyah, nis: s.NIS, target:'ayah', message: renderTemplateWA(tpl, vA) });
+      allMessages.push({ to:s.NoHPAyah, nis:r.NIS, target:'ayah', status:statusLabel,
+        nama:r.Nama||s.Nama||'', message: renderTemplateWA(tpl, vA) });
     }
     if(String(s.NoHPIbu||'').trim()){
       var vI = Object.assign({}, base, { '{ortu}': 'Ibu ' + (s.NamaIbu || '') });
-      messages.push({ to: s.NoHPIbu, nis: s.NIS, target:'ibu', message: renderTemplateWA(tpl, vI) });
+      allMessages.push({ to:s.NoHPIbu, nis:r.NIS, target:'ibu', status:statusLabel,
+        nama:r.Nama||s.Nama||'', message: renderTemplateWA(tpl, vI) });
     }
   });
 
-  if(!messages.length){
+  if(!allMessages.length){
     if(!options.silent) toast('Tidak ada nomor orang tua yang terisi pada siswa S/I/A','inf');
     return { sent:0, failed:0, skipped:targets.length, noPhone:true };
   }
 
-  var result = { sent:0, failed:0, total:messages.length, details:[] };
+  var skipDup = options.skipDuplicates !== false;
+  var alreadySent = 0, statusChanged = 0, forceResend = !!options.forceResend;
+  var messages = [];
+  allMessages.forEach(function(m){
+    if(skipDup && !forceResend){
+      var check = waWasSent(tanggal, m.nis, m.target, m.status);
+      if(check.sent){ alreadySent++; return; }
+      if(check.statusChanged) statusChanged++;
+    }
+    messages.push(m);
+  });
+
+  if(!messages.length){
+    if(!options.silent){
+      toast('✅ Semua ' + alreadySent + ' pesan sudah pernah terkirim. Tidak ada yang perlu dikirim ulang.', 'inf');
+    }
+    return { sent:0, failed:0, alreadySent:alreadySent, statusChanged:statusChanged,
+             allDuplicate:true, total:allMessages.length };
+  }
+
+  var st = await cekStatusGatewayWA();
+  if(!st.ok){
+    if(!options.silent) toast('Gateway WA: ' + st.msg, 'er');
+    return { sent:0, failed:0, error:st.msg, pending:messages.length, alreadySent:alreadySent };
+  }
+
+  var delayMs = parseInt((ST.setting && ST.setting.waDelayMs) || '3000', 10);
+  if(isNaN(delayMs) || delayMs < 1000) delayMs = 3000;
+
+  var result = { sent:0, failed:0, total:messages.length, alreadySent:alreadySent,
+                 statusChanged:statusChanged, details:[] };
+
   for(var i=0; i<messages.length; i++){
     var m = messages[i];
     try{
@@ -1678,8 +1776,11 @@ async function kirimNotifikasiWAPresensi(rows, tanggal, options){
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ to:m.to, message:m.message })
       });
-      if(res.ok){ result.sent++; result.details.push({ ok:true, nis:m.nis, target:m.target }); }
-      else {
+      if(res.ok){
+        result.sent++;
+        waMarkSent(tanggal, m.nis, m.target, m.status, m.to, { nama:m.nama });
+        result.details.push({ ok:true, nis:m.nis, target:m.target });
+      } else {
         var errTxt = await res.text();
         result.failed++;
         result.details.push({ ok:false, nis:m.nis, target:m.target, error:errTxt });
@@ -1703,59 +1804,122 @@ function kirimNotifikasiWAManual(){
   var targets = pool.filter(function(r){
     return String(r.Tanggal)===tgl && ['S','I','A'].indexOf(String(r.Status).toUpperCase())>=0;
   });
+
   if(!targets.length){
-    // fallback: ambil dari daftar absensi hari ini di server
     toast('Mengambil data presensi ' + tgl + '…','inf');
     getHadirRowsRange(tgl, tgl).then(function(data){
       var d = (data||[]).filter(function(r){ return ['S','I','A'].indexOf(String(r.Status).toUpperCase())>=0; });
       if(!d.length){ toast('Tidak ada siswa Sakit/Izin/Alpa pada tanggal ' + tgl, 'inf'); return; }
-      confirmBox(
-        'Kirim notifikasi WhatsApp ke orang tua siswa Sakit/Izin/Alpa?\n\n' +
-        'Tanggal: ' + tglPanjang(tgl) + '\n' +
-        'Jumlah siswa: ' + d.length + '\n' +
-        'Setiap siswa akan dikirim ke nomor Ayah dan Ibu (jika terisi).',
-        function(){ jalankanKirimWAWithProgress(d, tgl); }
-      );
+      _konfirmasiKirimWAManual(d, tgl);
     }).catch(function(e){ toast('Gagal: ' + e.message, 'er'); });
     return;
   }
-  confirmBox(
-    'Kirim notifikasi WhatsApp ke orang tua siswa Sakit/Izin/Alpa?\n\n' +
-    'Tanggal: ' + tglPanjang(tgl) + '\n' +
-    'Jumlah siswa: ' + targets.length + '\n' +
-    'Setiap siswa akan dikirim ke nomor Ayah dan Ibu (jika terisi).',
-    function(){ jalankanKirimWAWithProgress(targets, tgl); }
-  );
+  _konfirmasiKirimWAManual(targets, tgl);
 }
 
-async function jalankanKirimWAWithProgress(targets, tgl){
+function _konfirmasiKirimWAManual(targets, tgl){
+  var totalNomor = 0, sudahKirim = 0, akanKirim = 0;
+  var siswaMap = {};
+  (ST.siswa||[]).forEach(function(s){ siswaMap[String(s.NIS)] = s; });
+
+  targets.forEach(function(r){
+    var s = siswaMap[String(r.NIS)];
+    if(!s) return;
+    var stUp = String(r.Status||'').toUpperCase();
+    var statusLabel = stUp==='S'?'Sakit':stUp==='I'?'Izin':'Alpa';
+    ['ayah','ibu'].forEach(function(tgt){
+      var phone = tgt==='ayah' ? s.NoHPAyah : s.NoHPIbu;
+      if(!String(phone||'').trim()) return;
+      totalNomor++;
+      var check = waWasSent(tgl, r.NIS, tgt, statusLabel);
+      if(check.sent) sudahKirim++; else akanKirim++;
+    });
+  });
+
+  var statHTML = '<div style="background:#f7fafd;border:1px solid #e8eff7;border-radius:10px;padding:14px;margin-bottom:14px">'+
+    '<table style="min-width:auto;width:100%;font-size:13px">'+
+      '<tr><td style="padding:3px 0">Tanggal</td><td style="padding:3px 0"><b>'+esc(tglPanjang(tgl))+'</b></td></tr>'+
+      '<tr><td style="padding:3px 0">Jumlah siswa S/I/A</td><td style="padding:3px 0"><b>'+targets.length+'</b> siswa</td></tr>'+
+      '<tr><td style="padding:3px 0">Total nomor WA orang tua</td><td style="padding:3px 0"><b>'+totalNomor+'</b> nomor</td></tr>'+
+      '<tr><td style="padding:3px 0">✅ Sudah pernah terkirim</td><td style="padding:3px 0"><b style="color:#1e8449">'+sudahKirim+'</b></td></tr>'+
+      '<tr><td style="padding:3px 0">📤 Akan dikirim sekarang</td><td style="padding:3px 0"><b style="color:#1a73e8">'+akanKirim+'</b></td></tr>'+
+    '</table>'+
+  '</div>';
+
+  var infoHTML = '';
+  if(akanKirim === 0){
+    infoHTML = '<div class="notif new">✅ <b>Semua pesan sudah pernah terkirim.</b> Tidak ada yang perlu dikirim ulang. Gunakan tombol <b>Kirim Ulang Semua (Paksa)</b> jika ingin mengirim ulang.</div>';
+  } else if(sudahKirim > 0){
+    infoHTML = '<div class="notif info">🛡️ <b>Anti-duplikat aktif.</b> '+sudahKirim+' pesan akan dilewati (sudah pernah terkirim). '+akanKirim+' pesan baru akan dikirim.</div>';
+  } else {
+    infoHTML = '<div class="notif info">📤 Semua '+akanKirim+' pesan akan dikirim (belum ada yang terkirim untuk tanggal ini).</div>';
+  }
+
+  var footer = '<button class="btn2" onclick="closeModal()">Batal</button>';
+  if(akanKirim > 0){
+    footer += '<button class="btn" id="waKirimNormal">📤 Kirim '+akanKirim+' Pesan</button>';
+  }
+  footer += '<button class="btn5" id="waKirimPaksa" title="Mengabaikan anti-duplikat — kirim ulang ke SEMUA nomor">🔁 Kirim Ulang Semua (Paksa)</button>';
+
+  openModal('📱 Konfirmasi Kirim WhatsApp', statHTML + infoHTML, footer, true);
+
+  var btnNormal = document.getElementById('waKirimNormal');
+  if(btnNormal) btnNormal.onclick = function(){
+    closeModal();
+    jalankanKirimWAWithProgress(targets, tgl, { skipDuplicates: true });
+  };
+
+  document.getElementById('waKirimPaksa').onclick = function(){
+    closeModal();
+    confirmBox(
+      '⚠️ KIRIM ULANG SEMUA (PAKSA)\n\n'+
+      'Semua pesan akan dikirim ulang, TERMASUK yang sudah pernah terkirim.\n\n'+
+      'Nomor orang tua akan menerima pesan DUPLIKAT. Lanjutkan?',
+      function(){ jalankanKirimWAWithProgress(targets, tgl, { skipDuplicates: false, forceResend: true }); }
+    );
+  };
+}
+
+async function jalankanKirimWAWithProgress(targets, tgl, opts){
+  opts = opts || {};
   var totalSiswa = targets.length;
   var progressId = 'waProg_' + Date.now();
   var panel = document.createElement('div');
   panel.id = progressId;
   panel.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;max-width:520px;margin:0 auto;background:#0f1720;color:#fff;padding:16px 20px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:9999;font-family:inherit;font-size:13px';
   panel.innerHTML =
-    '<div style="font-weight:700;margin-bottom:8px">📤 Mengirim WhatsApp…</div>' +
+    '<div style="font-weight:700;margin-bottom:8px">📤 Mengirim WhatsApp…'+(opts.forceResend?' <span style="color:#f5c97a">(paksa)</span>':'')+'</div>' +
     '<div style="background:#2a3a4a;height:8px;border-radius:4px;overflow:hidden;margin-bottom:10px"><div id="'+progressId+'_bar" style="background:#25D366;height:100%;width:0%;transition:.3s"></div></div>' +
     '<div id="'+progressId+'_txt" style="font-size:11.5px;opacity:.85">0 / 0</div>';
   document.body.appendChild(panel);
 
   var res = await kirimNotifikasiWAPresensi(targets, tgl, {
+    skipDuplicates: opts.skipDuplicates !== false,
+    forceResend: !!opts.forceResend,
     onProgress: function(done, total){
       var bar = document.getElementById(progressId+'_bar'); if(bar) bar.style.width = Math.round(done/total*100)+'%';
       var txt = document.getElementById(progressId+'_txt'); if(txt) txt.textContent = done + ' / ' + total + ' pesan';
     }
   });
 
-  panel.innerHTML =
-    '<div style="font-weight:700;margin-bottom:8px">✅ Selesai mengirim WhatsApp</div>' +
-    '<div style="font-size:12.5px;line-height:1.8">' +
+  var summaryHTML = '';
+  if(res.allDuplicate){
+    summaryHTML = '<div style="color:#f5c97a;font-weight:700">⏭️ Semua pesan sudah pernah terkirim</div>'+
+      '<div style="font-size:12.5px;margin-top:6px">Tidak ada pesan baru yang dikirim (anti-duplikat).</div>';
+  } else {
+    summaryHTML = '<div style="font-size:12.5px;line-height:1.8">' +
       'Target siswa: <b>'+totalSiswa+'</b><br>' +
-      'Total pesan: <b>'+res.total+'</b><br>' +
+      (res.alreadySent ? '⏭️ Dilewati (sudah terkirim): <b>'+res.alreadySent+'</b><br>' : '') +
+      (res.statusChanged ? '🔄 Status berubah, dikirim ulang: <b>'+res.statusChanged+'</b><br>' : '') +
       '<span style="color:#4ade80">✓ Terkirim: <b>'+res.sent+'</b></span><br>' +
       (res.failed ? '<span style="color:#f59a8e">✗ Gagal: <b>'+res.failed+'</b></span>' : '') +
       (res.error ? '<div style="color:#f59a8e;margin-top:6px">'+esc(res.error)+'</div>' : '') +
-    '</div>' +
+    '</div>';
+  }
+
+  panel.innerHTML =
+    '<div style="font-weight:700;margin-bottom:8px">'+(res.allDuplicate ? '⏭️ Selesai — Semua Duplikat' : '✅ Selesai mengirim WhatsApp')+'</div>' +
+    summaryHTML +
     '<button style="margin-top:10px;background:#2a3a4a;color:#fff;padding:6px 14px;border-radius:6px" onclick="this.parentNode.remove()">Tutup</button>';
 
   setTimeout(function(){
@@ -1763,7 +1927,98 @@ async function jalankanKirimWAWithProgress(targets, tgl){
     if(el && el.parentNode){ el.style.opacity='0'; el.style.transition='.6s'; setTimeout(function(){ el.remove(); }, 700); }
   }, 8000);
 
-  toast('WA: ' + res.sent + ' terkirim' + (res.failed ? ', ' + res.failed + ' gagal' : ''));
+  if(res.allDuplicate){
+    toast('⏭️ Anti-duplikat: semua pesan sudah pernah terkirim', 'inf');
+  } else {
+    toast('WA: ' + res.sent + ' terkirim' + (res.alreadySent ? ', ' + res.alreadySent + ' dilewati' : '') + (res.failed ? ', ' + res.failed + ' gagal' : ''));
+  }
+}
+
+/* ====== UI LOG PENGIRIMAN ====== */
+function showWALogDialog(){
+  var dates = waGetLogDates();
+  var allLog = waGetLog();
+  var totalEntries = Object.keys(allLog).length;
+
+  var html = '<div class="notif info" style="margin-bottom:12px">📋 <b>Log Pengiriman WhatsApp</b> — mencatat setiap pesan yang berhasil terkirim per (tanggal + siswa + target). Anti-duplikat akan melewati entri yang sudah tercatat di sini.</div>';
+
+  if(!totalEntries){
+    html += '<div class="empty" style="padding:30px">📭 Belum ada log pengiriman.<br><span class="hint">Log akan bertambah otomatis setelah ada pesan yang berhasil dikirim.</span></div>';
+  } else {
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">'+
+      '<div style="font-weight:700;color:#0f4c81">📊 '+totalEntries+' pesan tercatat dari '+dates.length+' tanggal</div>'+
+      '<button class="btn3 btn-sm" onclick="konfirmasiClearAllWALog()">🗑 Hapus Semua Log</button>'+
+    '</div>';
+    html += '<div class="preview-list" style="max-height:400px"><table style="min-width:auto;width:100%"><thead><tr><th>Tanggal</th><th style="text-align:center">Jumlah Pesan</th><th style="width:140px;text-align:center">Aksi</th></tr></thead><tbody>';
+    dates.forEach(function(d){
+      html += '<tr>'+
+        '<td><b>'+esc(tglPanjang(d.tanggal))+'</b></td>'+
+        '<td style="text-align:center">'+d.total+' pesan</td>'+
+        '<td style="text-align:center"><button class="btn2 btn-sm" onclick="lihatDetailLogTanggal(\''+d.tanggal+'\')">🔍 Detail</button> <button class="btn3 btn-sm" onclick="konfirmasiClearLogTanggal(\''+d.tanggal+'\')">🗑</button></td>'+
+      '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  html += '<div class="notif edit" style="margin-top:14px">💡 <b>Cara pakai:</b> Jika Anda ingin <b>mengirim ulang</b> pesan untuk tanggal tertentu (misal sebelumnya salah kirim), hapus dulu log tanggal itu → kemudian klik <b>📤 Kirim WA Orang Tua</b> seperti biasa.</div>';
+
+  openModal('📋 Log Pengiriman WhatsApp', html,
+    '<button class="btn2" onclick="closeModal()">Tutup</button>', true);
+}
+
+function lihatDetailLogTanggal(tanggal){
+  var entries = waGetLogForDate(tanggal);
+  if(!entries.length){ toast('Tidak ada log untuk tanggal ini','inf'); return; }
+  var siswaMap = {};
+  (ST.siswa||[]).forEach(function(s){ siswaMap[String(s.NIS)] = s; });
+
+  var html = '<div class="notif info" style="margin-bottom:10px">📅 <b>'+esc(tglPanjang(tanggal))+'</b> — '+entries.length+' pesan terkirim</div>';
+  html += '<div class="tw" style="max-height:400px;overflow-y:auto"><table><thead><tr>'+
+    '<th style="width:36px">No</th><th>Nama Siswa</th><th>NIS</th><th>Target</th><th>Status</th><th>Nomor</th><th>Waktu Kirim</th>'+
+    '</tr></thead><tbody>';
+  entries.sort(function(a,b){ return (a.nama||'').localeCompare(b.nama||''); });
+  entries.forEach(function(e,i){
+    var s = siswaMap[String(e.nis)] || {};
+    var targetLabel = e.target==='ayah' ? '👨 Ayah' : e.target==='ibu' ? '👩 Ibu' : '👤 Siswa';
+    var waktu = e.ts ? new Date(e.ts).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+    html += '<tr>'+
+      '<td>'+(i+1)+'</td>'+
+      '<td><b>'+esc(s.Nama||e.nama||'-')+'</b></td>'+
+      '<td>'+esc(e.nis||'-')+'</td>'+
+      '<td>'+targetLabel+'</td>'+
+      '<td><span class="tag tg">'+esc(e.status||'-')+'</span></td>'+
+      '<td>'+esc(e.phone||'-')+'</td>'+
+      '<td style="font-size:11.5px">'+esc(waktu)+'</td>'+
+    '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  openModal('🔍 Detail Log — '+tglPanjang(tanggal), html,
+    '<button class="btn2" onclick="showWALogDialog()">← Kembali</button>'+
+    '<button class="btn3" onclick="konfirmasiClearLogTanggal(\''+tanggal+'\')">🗑 Hapus Log Tanggal Ini</button>', true);
+}
+
+function konfirmasiClearLogTanggal(tanggal){
+  confirmBox(
+    'Hapus log pengiriman untuk tanggal ' + tglPanjang(tanggal) + '?\n\n'+
+    'Setelah dihapus, Anda bisa mengirim ulang WA untuk tanggal ini (anti-duplikat akan mengizinkan).',
+    function(){
+      var n = waClearLogForDate(tanggal);
+      toast('✅ '+n+' log dihapus untuk tanggal '+tglPanjang(tanggal));
+      showWALogDialog();
+    }
+  );
+}
+function konfirmasiClearAllWALog(){
+  confirmBox(
+    'Hapus SEMUA log pengiriman WhatsApp?\n\n'+
+    'Setelah dihapus, Anda bisa mengirim ulang WA ke seluruh tanggal. Lanjutkan?',
+    function(){
+      var n = waClearAllLog();
+      toast('✅ '+n+' log dihapus');
+      showWALogDialog();
+    }
+  );
 }
 
 /* ====== END WA GATEWAY LOKAL ====== */
@@ -2971,6 +3226,7 @@ function renderSetWA(el){
       '<button class="btn2" onclick="ujiKoneksiGatewayWA()">🔌 Uji Koneksi Gateway</button>' +
       '<button class="btn4" onclick="window.open((document.getElementById(\'setWaUrl\').value||\'\').replace(/\\/+$/,\'\')+\'/qr\',\'_blank\')">📷 Buka QR</button>' +
       '<button class="btn2" onclick="kirimPesanUjiWA()">✉️ Kirim Pesan Uji</button>' +
+      '<button class="btn5" onclick="showWALogDialog()">📋 Lihat Log Pengiriman</button>' +
     '</div>' +
 
     '<div id="waStatusBox" style="margin-top:14px"></div>' +
@@ -3810,7 +4066,6 @@ function cetakValidasiWABanyak(kelasArr){
   w.document.close();
 }
 
-// ============ EDGE FUNCTION CALLER ============
 async function cekWABatch(numbers, progressCb){
   var CHUNK = 30;
   var results = [];
@@ -5078,7 +5333,7 @@ function simpanKehadiran(){
       });
       if(targetsWA.length && isWAAutoSend()){
         setTimeout(function(){
-          jalankanKirimWAWithProgress(targetsWA, tglV);
+          jalankanKirimWAWithProgress(targetsWA, tglV, { skipDuplicates: true });
         }, 600);
       }
     }).catch(function(e){ toast(e.message,'er'); });
