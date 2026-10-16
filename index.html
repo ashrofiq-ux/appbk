@@ -554,7 +554,7 @@ function toRow(sheet, obj){
   var row = {};
   if(!map) return row;
   Object.keys(map).forEach(function(k){
-    if(obj[k] !== undefined && obj[k] !== null) row[map[k]] = obj[k];
+    if(Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== undefined) row[map[k]] = obj[k];
   });
   return row;
 }
@@ -588,15 +588,67 @@ function sbClient(){
   return _sbClient;
 }
 
+function pesanErrorDatabase(e, konteks){
+  var msg = String((e && (e.message || e.details || e.hint)) || e || 'Kesalahan tidak diketahui');
+  var code = String((e && e.code) || '');
+  if(code === '42501' || /row-level security|permission denied|not allowed/i.test(msg)){
+    return 'Akses database ditolak oleh kebijakan/izin Supabase. Periksa RLS Policy untuk tabel yang digunakan. ('+msg+')';
+  }
+  if(code === '42P01' || code === 'PGRST205' || /could not find the table|relation .* does not exist|table .* not found/i.test(msg)){
+    return 'Tabel database tidak ditemukan atau belum masuk schema cache Supabase. Periksa nama tabel: '+(konteks||'')+'. ('+msg+')';
+  }
+  if(code === '42703' || code === 'PGRST204' || /column .* does not exist|could not find the .* column/i.test(msg)){
+    return 'Nama kolom database tidak cocok dengan script pada tabel '+(konteks||'')+'. ('+msg+')';
+  }
+  if(/fetch|failed to fetch|networkerror|load failed/i.test(msg)){
+    return 'Gagal terhubung ke Supabase. Periksa internet, URL project, dan anon key. ('+msg+')';
+  }
+  if(code === '23505') return 'Data duplikat: nilai kunci utama/unik sudah digunakan. ('+msg+')';
+  if(code === '22P02') return 'Format data tidak sesuai tipe kolom database (misalnya ID UUID atau tanggal). ('+msg+')';
+  return msg;
+}
+function invalidasiCacheSetelahTulis(action, payload){
+  payload = payload || {};
+  var aksiTulis = {
+    saveRecord:1, updateRecord:1, deleteRecord:1, saveKehadiranBulk:1,
+    importAbsenBulanan:1, saveSiswa:1, deleteSiswa:1, importSiswa:1,
+    addKelas:1, deleteKelas:1, importKelas:1, saveGuruBK:1, deleteGuruBK:1,
+    saveGuruPiket:1, deleteGuruPiket:1, saveSetting:1, saveUserTamu:1,
+    deleteUserTamu:1, saveKontakSiswa:1, setSiswaInputLock:1,
+    setSiswaWaStatus:1, restoreAll:1
+  };
+  if(!aksiTulis[action]) return;
+  // Buang cache rekap agar hasil simpan/edit/hapus selalu diambil ulang dari database.
+  ['lpAll','lp','rpAll','rp','jurnal_view','jurnal','view_izin','view_terlambat',
+   'v_klasikal','v_kelompok','v_kr','v_konseling','v_panggilan','v_kasus',
+   'v_konferensi','v_alihtangan','v_anekdot','v_lainlain'].forEach(function(k){
+    ST.cache[k] = null; ST.cacheTTL[k] = 0;
+  });
+  Object.keys(ST.cache || {}).forEach(function(k){
+    if(k.indexOf('HADIR|') === 0){ ST.cache[k] = null; ST.cacheTTL[k] = 0; }
+  });
+  _hadirLoading = {};
+  if(payload.sheet){
+    ST.cache[payload.sheet] = null;
+    ST.cache['view_'+payload.sheet] = null;
+    ST.cache['v_'+payload.sheet] = null;
+  }
+  if(['saveSiswa','deleteSiswa','importSiswa','addKelas','deleteKelas','importKelas',
+      'saveGuruBK','deleteGuruBK','saveGuruPiket','deleteGuruPiket','saveSetting','restoreAll'].indexOf(action) >= 0){
+    try{ localStorage.removeItem('bk_master'); }catch(e){}
+  }
+}
 async function api(action, payload){
   payload = payload || {};
-  try { return await _apiImpl(action, payload); }
+  try {
+    var result = await _apiImpl(action, payload);
+    invalidasiCacheSetelahTulis(action, payload);
+    return result;
+  }
   catch(e){
     console.error('[SB] error', action, e);
-    if(e && (e.message||'').toLowerCase().indexOf('fetch') >= 0){
-      throw new Error('Gagal terhubung ke Supabase. Cek URL, anon key, dan koneksi internet.');
-    }
-    throw new Error(e && e.message ? e.message : String(e));
+    var konteks = payload.sheet || payload.table || action;
+    throw new Error(pesanErrorDatabase(e, konteks));
   }
 }
 
@@ -714,20 +766,31 @@ async function _apiImpl(action, payload){
     }
 
     case 'bootstrap': {
+      // Tabel inti diperiksa secara ketat. Tabel kontrol input siswa bersifat tambahan:
+      // bila belum tersedia, aplikasi utama tetap boleh dibuka dan peringatan dicatat.
       var res = await Promise.all([
         sb.from('bk_kelas').select('*').order('nama'),
         sb.from('bk_gurubk').select('*'),
         sb.from('bk_siswa').select('*'),
-        sb.from('bk_setting').select('*'),
-        sb.from('bk_kontrol_siswa').select('*').eq('id', 1).maybeSingle()
+        sb.from('bk_setting').select('*')
       ]);
-      res.forEach(function(r){ if(r.error) throw r.error; });
+      var coreNames = ['bk_kelas','bk_gurubk','bk_siswa','bk_setting'];
+      res.forEach(function(r,i){ if(r.error) throw new Error(coreNames[i]+': '+pesanErrorDatabase(r.error, coreNames[i])); });
+      var lockRes = {data:null,error:null};
+      try {
+        lockRes = await sb.from('bk_kontrol_siswa').select('input_terkunci').eq('id', 1).maybeSingle();
+        if(lockRes.error) throw lockRes.error;
+      } catch(lockErr) {
+        console.warn('[DB] Tabel bk_kontrol_siswa tidak dapat dibaca; aplikasi utama tetap berjalan.', lockErr);
+        lockRes = {data:null,error:lockErr};
+      }
       var kelas  = (res[0].data||[]).map(function(r){ return r.nama; }).filter(Boolean);
       var gurubk = (res[1].data||[]).map(function(r){ return fromRow(SH.GURUBK, r); });
       var siswa  = (res[2].data||[]).map(function(r){ return fromRow(SH.SISWA, r); });
       var setting = {};
       (res[3].data||[]).forEach(function(r){ setting[r.key] = r.value; });
-      setting.inputSiswaTerkunci = !!(res[4].data && res[4].data.input_terkunci);
+      setting.inputSiswaTerkunci = !!(lockRes.data && lockRes.data.input_terkunci);
+      if(lockRes.error) setting._peringatanKontrolSiswa = 'Tabel bk_kontrol_siswa gagal dibaca; fitur kunci input siswa perlu diperiksa.';
       var gurupiket = [];
       try {
         var gpRes = await sb.from('bk_gurupiket').select('*');
@@ -755,16 +818,23 @@ async function _apiImpl(action, payload){
     case 'batchGetData': {
       var sheets = payload.sheets || [];
       var filters = payload.filters || {};
-      var result = {};
+      var result = {}, errors = {};
       await Promise.all(sheets.map(async function(s){
         var tn = TABLES[s];
-        if(!tn){ result[s] = []; return; }
+        if(!tn){ result[s] = []; errors[s] = 'Nama tabel tidak dikenal.'; return; }
         var f = filters[s] || {};
         try{
+          // Setiap tabel dimuat sendiri-sendiri. Satu tabel bermasalah tidak boleh
+          // menyembunyikan data dari tabel lain (khususnya jurnal, dashboard, dan laporan).
           var rawR = await fetchAllRowsPaginated(sb, tn, { since:f.since, until:f.until });
           result[s] = rawR.map(function(r){ return fromRow(s, r); });
-        }catch(e){ result[s] = []; }
+        }catch(e){
+          console.error('[DB] batchGetData gagal pada '+s+' ('+tn+')', e);
+          result[s] = [];
+          errors[s] = 'Gagal memuat '+s+' ('+tn+'): '+pesanErrorDatabase(e, tn);
+        }
       }));
+      if(Object.keys(errors).length) result.__errors = errors;
       return result;
     }
 
@@ -800,10 +870,18 @@ async function _apiImpl(action, payload){
       if(shS === SH.SETTING) dS.Key = dS.Key || idS;
       if(shS !== SH.KELAS && shS !== SH.SISWA && shS !== SH.SETTING) dS.ID = dS.ID || idS;
       var rowS = toRow(shS, dS);
-      if(shS === SH.KELAS)   rowS.nama = idS;
-      if(shS === SH.SISWA)   rowS.nis  = idS;
-      if(shS === SH.SETTING){ rowS.key = idS; rowS.value = dS.Value; }
-      else { rowS.id = idS; }
+      // Set kolom primary key sesuai struktur tiap tabel; bk_kelas dan bk_siswa
+      // memakai nama/nis, bukan kolom id.
+      if(shS === SH.KELAS) {
+        rowS = { nama: idS };
+      } else if(shS === SH.SISWA) {
+        rowS.nis = idS;
+        delete rowS.id;
+      } else if(shS === SH.SETTING) {
+        rowS = { key: idS, value: dS.Value };
+      } else {
+        rowS.id = idS;
+      }
       var rS = await sb.from(tS).upsert(rowS, { onConflict: pkOf(shS) });
       if(rS.error) throw rS.error;
       return { ok:true, id:idS };
@@ -820,10 +898,16 @@ async function _apiImpl(action, payload){
       var merged = Object.assign({}, curU.data ? fromRow(shU, curU.data) : {}, patch);
       if(shU !== SH.SISWA && shU !== SH.KELAS && shU !== SH.SETTING) merged.ID = idU;
       var rowU = toRow(shU, merged);
-      if(shU === SH.KELAS)   rowU.nama = idU;
-      if(shU === SH.SISWA)   rowU.nis  = idValU;
-      if(shU === SH.SETTING){ rowU.key = idU; rowU.value = merged.Value; }
-      else { rowU.id = idValU; }
+      if(shU === SH.KELAS) {
+        rowU = { nama: idU };
+      } else if(shU === SH.SISWA) {
+        rowU.nis = idValU;
+        delete rowU.id;
+      } else if(shU === SH.SETTING) {
+        rowU = { key: idU, value: merged.Value };
+      } else {
+        rowU.id = idValU;
+      }
       var rU = await sb.from(tU).upsert(rowU, { onConflict: pkU });
       if(rU.error) throw rU.error;
       return { ok:true };
@@ -889,10 +973,6 @@ async function _apiImpl(action, payload){
       if(!ST.user || (ST.user.role !== 'admin' && ST.user.role !== 'gurubk')) throw new Error('Hanya Admin atau Guru BK yang dapat mengubah data siswa');
       var NIS = String(payload.NIS);
       var oldNis = payload._old ? String(payload._old) : null;
-      if(oldNis && oldNis !== NIS){
-        var dOld = await sb.from('bk_siswa').delete().eq('nis', oldNis);
-        if(dOld.error) throw dOld.error;
-      }
       var recSS = { nis: NIS };
       if(payload.Nama !== undefined)     recSS.nama       = payload.Nama || '';
       if(payload.Kelas !== undefined)    recSS.kelas      = payload.Kelas || '';
@@ -903,8 +983,13 @@ async function _apiImpl(action, payload){
       if(payload.NoHPAyah !== undefined){ recSS.no_hp_ayah = formatPhoneForDB(payload.NoHPAyah); recSS.wa_status_ayah = null; }
       if(payload.NamaIbu !== undefined)  recSS.nama_ibu   = payload.NamaIbu || '';
       if(payload.NoHPIbu !== undefined){ recSS.no_hp_ibu = formatPhoneForDB(payload.NoHPIbu); recSS.wa_status_ibu = null; }
+      // Simpan ke NIS baru dahulu. Jangan menghapus NIS lama sebelum upsert berhasil.
       var rSS = await sb.from('bk_siswa').upsert(recSS, { onConflict:'nis' });
       if(rSS.error) throw rSS.error;
+      if(oldNis && oldNis !== NIS){
+        var dOldAfterSave = await sb.from('bk_siswa').delete().eq('nis', oldNis);
+        if(dOldAfterSave.error) throw dOldAfterSave.error;
+      }
       return { ok:true };
     }
 
@@ -917,7 +1002,8 @@ async function _apiImpl(action, payload){
     case 'setSiswaInputLock': {
       if(!ST.user || ST.user.role !== 'admin') throw new Error('Hanya Administrator yang dapat mengunci atau membuka input siswa');
       var lockValue = !!payload.locked;
-      var lockSave = await sb.from('bk_kontrol_siswa').upsert({id:1,input_terkunci:lockValue,updated_at:new Date().toISOString()}, {onConflict:'id'});
+      // Hindari kolom updated_at yang mungkin tidak ada pada skema lama.
+      var lockSave = await sb.from('bk_kontrol_siswa').upsert({id:1,input_terkunci:lockValue}, {onConflict:'id'});
       if(lockSave.error) throw lockSave.error;
       return {ok:true,locked:lockValue};
     }
@@ -1074,7 +1160,7 @@ async function _apiImpl(action, payload){
         var tN = allTables[a];
         var pk = (tN==='bk_kelas')?'nama':(tN==='bk_siswa')?'nis':(tN==='bk_setting')?'key':'id';
         try{
-          var dResp = await sb.from(tN).delete().gte(pk, '');
+          var dResp = await sb.from(tN).delete().not(pk, 'is', null);
           if(dResp.error){
             if(tN === 'bk_gurupiket' || tN === 'bk_lain_lain' || tN === 'bk_mutasi') continue;
             throw dResp.error;
@@ -1176,7 +1262,301 @@ async function _apiImpl(action, payload){
       throw new Error('Aksi tidak dikenal: '+action);
   }
 }
-function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function uid(){
+  if(typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0, v = c==='x' ? r : (r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+function fd(k, l, t, extra){
+  return Object.assign({k:k, l:l, t:t || 'text'}, extra || {});
+}
+var FORMS = {
+  izin: [
+    fd('Tanggal','Tanggal Izin','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}), fd('Alasan','Alasan Izin','textarea',{req:true,full:true}),
+    fd('JamKeluar','Jam Keluar','time',{req:true}), fd('JamKembali','Jam Kembali','time'),
+    fd('StatusKembali','Status Kembali','select',{options:[['Belum','Belum Kembali'],['Kembali','Sudah Kembali']],def:'Belum'}),
+    fd('Petugas','Petugas','hidden'), fd('Keterangan','Keterangan','textarea',{full:true})
+  ],
+  terlambat: [
+    fd('Tanggal','Tanggal Terlambat','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}), fd('JamDatang','Jam Datang','time',{req:true}),
+    fd('Alasan','Alasan Terlambat','textarea',{req:true,full:true}), fd('Petugas','Petugas','hidden'), fd('Keterangan','Keterangan','textarea',{full:true})
+  ],
+  jurnal: [
+    fd('Tanggal','Tanggal Kegiatan','date',{req:true}), fd('Kegiatan','Kegiatan / Catatan','textarea',{req:true,full:true}),
+    fd('Keterangan','Keterangan Tambahan','textarea',{full:true})
+  ],
+  klasikal: [
+    fd('Tanggal','Tanggal Pelaksanaan','date',{req:true}), fd('JamKe','Jam Ke','text',{placeholder:'Contoh: 1–2'}),
+    fd('Kelas','Kelas','kelas',{req:true}), fd('Topik','Topik / Materi','text',{req:true}),
+    fd('Tujuan','Tujuan Layanan','textarea',{full:true}), fd('Metode','Metode','text'),
+    fd('Media','Media','text'), fd('JumlahSiswa','Jumlah Siswa','number'),
+    fd('JumlahHadir','Jumlah Hadir','number'), fd('Catatan','Catatan / Evaluasi','textarea',{full:true})
+  ],
+  kelompok: [
+    fd('Tanggal','Tanggal Pelaksanaan','date',{req:true}), fd('Kelas','Filter Kelas Anggota','kelas'),
+    fd('Topik','Topik Bimbingan','text',{req:true}), fd('Tujuan','Tujuan Layanan','textarea',{full:true}),
+    fd('Anggota','Anggota Kelompok (centang siswa)','multisiswa',{req:true,full:true}),
+    fd('Hasil','Hasil Bimbingan','textarea',{full:true}), fd('JumlahHadir','Jumlah Hadir','number'),
+    fd('JumlahTidakHadir','Jumlah Tidak Hadir','number')
+  ],
+  kr: [
+    fd('Tanggal','Tanggal Home Visit','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}), fd('AlamatTujuan','Alamat Tujuan','textarea',{full:true}),
+    fd('Masalah','Masalah / Latar Belakang','textarea',{req:true,full:true}), fd('Tujuan','Tujuan Kunjungan','textarea',{full:true}),
+    fd('Petugas1','Guru BK','text'), fd('TTD1','Tanda Tangan Guru BK','sig',{full:true}),
+    fd('Petugas2','Guru / Wali Kelas','text'), fd('TTD2','Tanda Tangan Guru / Wali Kelas','sig',{full:true}),
+    fd('NamaOrtu','Nama Orang Tua / Wali','text'), fd('TTD_Ortu','Tanda Tangan Orang Tua / Wali','sig',{full:true}),
+    fd('Hasil','Hasil Kunjungan','textarea',{full:true}), fd('Rencana','Rencana Tindak Lanjut','textarea',{full:true})
+  ],
+  konseling: [
+    fd('Tanggal','Tanggal Konseling','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}),
+    fd('JenisLayanan','Jenis Layanan','select',{options:[['Konseling Individual','Konseling Individual'],['Konsultasi','Konsultasi'],['Mediasi','Mediasi'],['Lainnya','Lainnya']],def:'Konseling Individual'}),
+    fd('Masalah','Masalah yang Dibahas','textarea',{req:true,full:true}), fd('Tujuan','Tujuan Konseling','textarea',{full:true}),
+    fd('Pendekatan','Pendekatan / Teknik','textarea',{full:true}), fd('Hasil','Hasil Konseling','textarea',{full:true}),
+    fd('Rencana','Rencana Tindak Lanjut','textarea',{full:true})
+  ],
+  panggilan: [
+    fd('Tanggal','Tanggal Pertemuan','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}), fd('NamaOrtu','Nama Orang Tua / Wali','text',{req:true}),
+    fd('HubunganOrtu','Hubungan dengan Siswa','select',{options:[['Ayah','Ayah'],['Ibu','Ibu'],['Wali','Wali'],['Lainnya','Lainnya']]}),
+    fd('Masalah','Permasalahan','textarea',{req:true,full:true}), fd('Tujuan','Tujuan Pertemuan','textarea',{full:true}),
+    fd('Hasil','Hasil Pertemuan','textarea',{full:true}), fd('Rencana','Rencana Tindak Lanjut','textarea',{full:true}),
+    fd('TTD_Ortu','Tanda Tangan Orang Tua / Wali','sig',{full:true})
+  ],
+  kasus: [
+    fd('Tanggal','Tanggal Pencatatan','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}), fd('Deskripsi','Deskripsi Kasus / Peristiwa','textarea',{req:true,full:true}),
+    fd('Tindakan','Tindakan yang Dilakukan','textarea',{full:true}), fd('TindakLanjut','Tindak Lanjut','textarea',{full:true})
+  ],
+  konferensi: [
+    fd('Tanggal','Tanggal Konferensi','date',{req:true}), fd('Kelas','Kelas','kelas'),
+    fd('NIS','Siswa Terkait (opsional)','student'), fd('JudulKasus','Judul Kasus','text',{req:true}),
+    fd('Deskripsi','Deskripsi / Latar Belakang','textarea',{req:true,full:true}), fd('Peserta','Peserta Konferensi','textarea',{full:true}),
+    fd('Hasil','Hasil Pembahasan','textarea',{full:true}), fd('Keputusan','Keputusan Konferensi','textarea',{full:true}),
+    fd('TindakLanjut','Tindak Lanjut','textarea',{full:true})
+  ],
+  alihtangan: [
+    fd('Tanggal','Tanggal Alih Tangan','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}), fd('Alasan','Alasan Alih Tangan','textarea',{req:true,full:true}),
+    fd('TujuanAlih','Tujuan / Unit Penerima','text',{req:true}), fd('PihakPenerima','Nama Pihak Penerima','text'),
+    fd('Catatan','Catatan','textarea',{full:true}),
+    fd('Status','Status Penanganan','select',{options:[['Direncanakan','Direncanakan'],['Diproses','Diproses'],['Selesai','Selesai']],def:'Direncanakan'}),
+    fd('TindakLanjut','Tindak Lanjut','textarea',{full:true})
+  ],
+  anekdot: [
+    fd('Tanggal','Tanggal Kejadian','date',{req:true}), fd('Kelas','Kelas','kelas',{req:true}),
+    fd('NIS','Nama Siswa','student',{req:true}), fd('Catatan','Catatan Kejadian / Perilaku','textarea',{req:true,full:true}),
+    fd('TindakLanjut','Tindak Lanjut','textarea',{full:true}), fd('Keterangan','Keterangan Tambahan','textarea',{full:true})
+  ],
+  lainlain: [
+    fd('Tanggal','Tanggal Kegiatan','date',{req:true}), fd('Kegiatan','Nama Kegiatan','text',{req:true}),
+    fd('Anggota','Peserta / Anggota Kegiatan','textarea',{full:true}), fd('Keterangan','Keterangan / Hasil','textarea',{full:true})
+  ]
+};
+
+function colDef(k,l,kind){
+  var c={k:k,l:l};
+  if(kind==='date') c.f=function(v){ return esc(v ? tgl(v) : '-'); };
+  else if(kind==='anggota') c.f=function(v){ var a=formatAnggotaKelompok(v); return esc(a.length ? a.join(', ') : (v||'-')); };
+  else if(kind==='text') c.f=function(v){ return esc(v==null || v==='' ? '-' : String(v)); };
+  return c;
+}
+var COLS = {
+  klasikal:[colDef('Tanggal','Tanggal','date'),colDef('JamKe','Jam Ke'),colDef('Kelas','Kelas'),colDef('Topik','Topik'),colDef('Tujuan','Tujuan'),colDef('Metode','Metode'),colDef('Media','Media'),colDef('JumlahSiswa','Jumlah Siswa'),colDef('JumlahHadir','Jumlah Hadir'),colDef('Catatan','Catatan')],
+  kelompok:[colDef('Tanggal','Tanggal','date'),colDef('Topik','Topik'),colDef('Kelas','Kelas'),colDef('Anggota','Anggota','anggota'),colDef('Tujuan','Tujuan'),colDef('Hasil','Hasil'),colDef('JumlahAnggota','Jml. Anggota'),colDef('JumlahHadir','Hadir'),colDef('JumlahTidakHadir','Tidak Hadir'),colDef('Petugas','Guru BK')],
+  kr:[colDef('Tanggal','Tanggal','date'),colDef('NIS','NIS'),colDef('Nama','Nama Siswa'),colDef('Kelas','Kelas'),colDef('AlamatTujuan','Alamat'),colDef('Masalah','Masalah'),colDef('Tujuan','Tujuan'),colDef('Petugas1','Guru BK'),colDef('Petugas2','Guru / Wali Kelas'),colDef('NamaOrtu','Orang Tua'),colDef('Hasil','Hasil'),colDef('Rencana','Tindak Lanjut')],
+  konseling:[colDef('Tanggal','Tanggal','date'),colDef('NIS','NIS'),colDef('Nama','Nama Siswa'),colDef('Kelas','Kelas'),colDef('JenisLayanan','Jenis Layanan'),colDef('Masalah','Masalah'),colDef('Tujuan','Tujuan'),colDef('Pendekatan','Pendekatan'),colDef('Hasil','Hasil'),colDef('Rencana','Tindak Lanjut')],
+  panggilan:[colDef('Tanggal','Tanggal','date'),colDef('NIS','NIS'),colDef('Nama','Nama Siswa'),colDef('Kelas','Kelas'),colDef('NamaOrtu','Orang Tua / Wali'),colDef('HubunganOrtu','Hubungan'),colDef('Masalah','Masalah'),colDef('Tujuan','Tujuan'),colDef('Hasil','Hasil'),colDef('Rencana','Tindak Lanjut')],
+  kasus:[colDef('Tanggal','Tanggal','date'),colDef('NIS','NIS'),colDef('Nama','Nama Siswa'),colDef('Kelas','Kelas'),colDef('Deskripsi','Deskripsi Kasus'),colDef('Tindakan','Tindakan'),colDef('TindakLanjut','Tindak Lanjut')],
+  konferensi:[colDef('Tanggal','Tanggal','date'),colDef('NIS','NIS'),colDef('Nama','Nama Siswa'),colDef('Kelas','Kelas'),colDef('JudulKasus','Judul Kasus'),colDef('Deskripsi','Deskripsi'),colDef('Peserta','Peserta'),colDef('Hasil','Hasil'),colDef('Keputusan','Keputusan'),colDef('TindakLanjut','Tindak Lanjut')],
+  alihtangan:[colDef('Tanggal','Tanggal','date'),colDef('NIS','NIS'),colDef('Nama','Nama Siswa'),colDef('Kelas','Kelas'),colDef('Alasan','Alasan'),colDef('TujuanAlih','Tujuan Alih'),colDef('PihakPenerima','Pihak Penerima'),colDef('Catatan','Catatan'),colDef('Status','Status'),colDef('TindakLanjut','Tindak Lanjut')],
+  anekdot:[colDef('Tanggal','Tanggal','date'),colDef('NIS','NIS'),colDef('Nama','Nama Siswa'),colDef('Kelas','Kelas'),colDef('Catatan','Catatan'),colDef('TindakLanjut','Tindak Lanjut'),colDef('Keterangan','Keterangan')],
+  lainlain:[colDef('Tanggal','Tanggal','date'),colDef('Kegiatan','Kegiatan'),colDef('Anggota','Peserta / Anggota'),colDef('Keterangan','Keterangan'),colDef('Petugas','Petugas')]
+};
+var COLS_PERSISWA = {
+  anekdot:[colDef('Tanggal','Tanggal','date'),colDef('Catatan','Catatan'),colDef('TindakLanjut','Tindak Lanjut'),colDef('Keterangan','Keterangan')],
+  konseling:[colDef('Tanggal','Tanggal','date'),colDef('JenisLayanan','Jenis Layanan'),colDef('Masalah','Masalah'),colDef('Tujuan','Tujuan'),colDef('Pendekatan','Pendekatan'),colDef('Hasil','Hasil'),colDef('Rencana','Tindak Lanjut')]
+};
+var COLS_PERSISWA_PRINT = {
+  anekdot:[colDef('Tanggal','Tanggal','date'),colDef('Catatan','Catatan'),colDef('TindakLanjut','Tindak Lanjut'),colDef('Keterangan','Keterangan')],
+  konseling:[colDef('Tanggal','Tanggal','date'),colDef('JenisLayanan','Jenis Layanan'),colDef('Masalah','Masalah'),colDef('Tujuan','Tujuan'),colDef('Pendekatan','Pendekatan'),colDef('Hasil','Hasil'),colDef('Rencana','Tindak Lanjut')]
+};
+
+function studentOptions(selected, kelas){
+  var source = siswaSaya();
+  if(!source || !source.length) source = (ST.user && ST.user.role==='admin') ? (ST.siswa||[]) : source;
+  if(kelas) source = source.filter(function(s){ return String(s.Kelas)===String(kelas); });
+  var seen = {};
+  var out = '<option value="">-- Pilih Siswa --</option>';
+  source.slice().sort(function(a,b){ return String(a.Nama||'').localeCompare(String(b.Nama||''),'id'); }).forEach(function(s){
+    var nis=String(s.NIS||''); if(!nis || seen[nis]) return; seen[nis]=1;
+    out += '<option value="'+esc(nis)+'"'+(String(selected||'')===nis?' selected':'')+'>'+esc(s.Nama||nis)+' ('+esc(nis)+')</option>';
+  });
+  if(selected && !seen[String(selected)]){
+    var any=(ST.siswa||[]).find(function(s){return String(s.NIS)===String(selected);});
+    if(any) out += '<option value="'+esc(any.NIS)+'" selected>'+esc(any.Nama||any.NIS)+' ('+esc(any.NIS)+')</option>';
+  }
+  return out;
+}
+function buildForm(key, data){
+  data=data||{};
+  var schema=FORMS[key];
+  if(!schema) return '<div class="notif err">Form untuk menu ini belum dikonfigurasi ('+esc(key)+').</div>';
+  var html='<div class="row r2" style="row-gap:4px">';
+  schema.forEach(function(f){
+    var value=data[f.k];
+    if(value===undefined || value===null){
+      if(f.k==='Petugas') value=currentPetugasName();
+      else if(f.t==='date') value=today();
+      else if(f.t==='time' && f.req) value=nowTime();
+      else if(f.def!==undefined) value=f.def;
+      else value='';
+    }
+    // Field internal seperti Petugas harus benar-benar tersembunyi tanpa label kosong.
+    if(f.t==='hidden'){
+      html += '<input type="hidden" id="f_'+f.k+'" value="'+esc(value)+'">';
+      return;
+    }
+    var req=f.req?' <span style="color:#e74c3c">*</span>':'';
+    var wide=f.full || ['textarea','multisiswa','sig'].indexOf(f.t)>=0;
+    var wrap='<div class="fg"'+(wide?' style="grid-column:1/-1"':'')+'><label for="f_'+f.k+'">'+esc(f.l)+req+'</label>';
+    if(f.t==='kelas'){
+      var ks=kelasSaya().slice();
+      if(value && ks.indexOf(String(value))<0) ks.push(String(value));
+      wrap+='<select id="f_'+f.k+'" '+(f.req?'required':'')+' onchange="onKelasChange(this.value)"><option value="">-- '+(f.req?'Pilih':'Semua')+' Kelas --</option>'+ks.sort(function(a,b){return String(a).localeCompare(String(b),'id');}).map(function(k){return '<option value="'+esc(k)+'"'+(String(value)===String(k)?' selected':'')+'>'+esc(k)+'</option>';}).join('')+'</select>';
+    } else if(f.t==='student'){
+      wrap+='<select id="f_'+f.k+'" '+(f.req?'required':'')+'>'+studentOptions(value, data.Kelas||'')+'</select>';
+    } else if(f.t==='select'){
+      wrap+='<select id="f_'+f.k+'" '+(f.req?'required':'')+'><option value="">-- Pilih --</option>'+(f.options||[]).map(function(o){ var ov=Array.isArray(o)?o[0]:o.v; var ol=Array.isArray(o)?o[1]:o.l; return '<option value="'+esc(ov)+'"'+(String(value)===String(ov)?' selected':'')+'>'+esc(ol)+'</option>'; }).join('')+'</select>';
+    } else if(f.t==='textarea'){
+      wrap+='<textarea id="f_'+f.k+'" rows="3" '+(f.req?'required':'')+' placeholder="'+esc(f.placeholder||'')+'">'+esc(value)+'</textarea>';
+    } else if(f.t==='sig'){
+      wrap+='<div class="small" style="margin-bottom:4px">Gambar tanda tangan di kotak menggunakan mouse atau layar sentuh.</div><canvas class="sig" id="sigCanvas_'+f.k+'" data-sig-key="'+f.k+'"></canvas><input type="hidden" id="f_'+f.k+'" value="'+esc(value)+'"><div class="right" style="margin-top:5px"><button type="button" class="btn2 btn-sm" onclick="clearSigPad(\''+f.k+'\')">Hapus TTD</button></div>';
+    } else if(f.t==='multisiswa'){
+      wrap+='<input type="hidden" id="f_'+f.k+'" value="'+esc(value)+'"><div id="multi_'+f.k+'" class="mslist" style="max-height:220px"><div class="empty">Memuat daftar siswa…</div></div><div id="multiCount_'+f.k+'" class="hint">Belum ada siswa dipilih.</div>';
+    } else {
+      var type=f.t==='date'?'date':f.t==='time'?'time':f.t==='number'?'number':'text';
+      wrap+='<input id="f_'+f.k+'" type="'+type+'" value="'+esc(value)+'" '+(f.req?'required':'')+(f.placeholder?' placeholder="'+esc(f.placeholder)+'"':'')+(f.t==='number'?' min="0" step="1"':'')+'>';
+    }
+    wrap+='</div>'; html+=wrap;
+  });
+  html+='</div>';
+  return html;
+}
+function parseAnggotaSelected(value){
+  var out={};
+  String(value||'').split(';').map(function(x){return x.trim();}).filter(Boolean).forEach(function(x){
+    var i=x.indexOf(' - '); var nis=(i>0?x.slice(0,i):x).trim(); if(nis) out[nis]=x;
+  });
+  return out;
+}
+function collectMultiSiswa(field){
+  var hidden=document.getElementById('f_'+field); if(!hidden) return;
+  var current=parseAnggotaSelected(hidden.value);
+  var boxes=Array.prototype.slice.call(document.querySelectorAll('[data-multi-field="'+field+'"]'));
+  boxes.forEach(function(box){
+    var nis=String(box.value||'');
+    if(box.checked){ current[nis]=box.getAttribute('data-anggota')||nis; }
+    else { delete current[nis]; }
+  });
+  hidden.value=Object.keys(current).map(function(n){return current[n];}).join('; ');
+  var count=document.getElementById('multiCount_'+field);
+  if(count) count.textContent=Object.keys(current).length+' siswa dipilih.';
+}
+function updateMultiSiswa(field){
+  var schema=null, key='';
+  Object.keys(FORMS).some(function(k){ var found=FORMS[k].some(function(f){return f.k===field && f.t==='multisiswa';}); if(found){schema=FORMS[k].find(function(f){return f.k===field;}); key=k; return true;} return false; });
+  var el=document.getElementById('multi_'+field), hidden=document.getElementById('f_'+field); if(!el||!hidden) return;
+  var selected=parseAnggotaSelected(hidden.value);
+  var classEl=document.getElementById('f_Kelas'); var kelas=classEl?classEl.value:'';
+  var students=(siswaSaya()||[]).slice();
+  if(!students.length && ST.user && ST.user.role==='admin') students=(ST.siswa||[]).slice();
+  if(kelas) students=students.filter(function(s){return String(s.Kelas)===String(kelas);});
+  students.sort(function(a,b){return String(a.Nama||'').localeCompare(String(b.Nama||''),'id');});
+  if(!students.length){ el.innerHTML='<div class="empty">Tidak ada siswa pada kelas/filter ini.</div>'; return; }
+  el.innerHTML=students.map(function(s){
+    var nis=String(s.NIS||''); var full=nis+' - '+String(s.Nama||'');
+    var pre=selected[nis]||'';
+    return '<label style="display:flex;align-items:center;gap:7px;margin:0 0 5px;font-size:12px;font-weight:400"><input type="checkbox" data-multi-field="'+esc(field)+'" data-anggota="'+esc(full)+'" value="'+esc(nis)+'" '+(pre?'checked':'')+' onchange="collectMultiSiswa(\''+field+'\')" style="width:auto"> <span>'+esc(s.Nama||nis)+' <span class="small">('+esc(nis)+', '+esc(s.Kelas||'-')+')</span></span></label>';
+  }).join('');
+  var count=document.getElementById('multiCount_'+field);
+  if(count) count.textContent=Object.keys(selected).length+' siswa dipilih.';
+}
+function onKelasChange(value){
+  var sel=document.getElementById('f_NIS');
+  if(sel){
+    var old=sel.value;
+    var oldRow=(ST.siswa||[]).find(function(s){return String(s.NIS)===String(old);});
+    if(value && oldRow && String(oldRow.Kelas)!==String(value)) old='';
+    sel.innerHTML=studentOptions(old,value||'');
+    if(old) sel.value=old;
+  }
+  (function(){
+    var keys=Object.keys(FORMS);
+    keys.forEach(function(k){ FORMS[k].forEach(function(f){ if(f.t==='multisiswa') updateMultiSiswa(f.k); }); });
+  })();
+}
+function collectForm(key){
+  var schema=FORMS[key];
+  if(!schema){ toast('Konfigurasi form tidak ditemukan: '+key,'er'); return null; }
+  var out={};
+  for(var i=0;i<schema.length;i++){
+    var f=schema[i], el=document.getElementById('f_'+f.k);
+    if(!el) continue;
+    var val;
+    if(f.t==='number') val=String(el.value||'').trim()===''?null:Number(el.value);
+    else if(f.t==='date'||f.t==='time') val=String(el.value||'').trim()||null;
+    else val=String(el.value==null?'':el.value).trim();
+    if(f.req && (val===null || val==='')){ toast(f.l+' wajib diisi.','er'); if(el.focus) el.focus(); return null; }
+    out[f.k]=val;
+  }
+  var petugas=document.getElementById('f_Petugas');
+  if(petugas) out.Petugas=String(petugas.value||'').trim();
+  if(['jurnal','kelompok','lainlain'].indexOf(key)>=0 && !out.Petugas) out.Petugas=currentPetugasName();
+  if(out.NIS){
+    var siswa=(ST.siswa||[]).find(function(s){return String(s.NIS)===String(out.NIS);});
+    if(siswa){ out.Nama=siswa.Nama||''; if(!out.Kelas) out.Kelas=siswa.Kelas||''; }
+  }
+  if(key==='klasikal' && out.JumlahSiswa==null){ out.JumlahSiswa=(ST.siswa||[]).filter(function(s){return s.Kelas===out.Kelas;}).length; }
+  if(key==='kelompok'){
+    var count=parseAnggotaSelected(out.Anggota||'');
+    out.JumlahAnggota=Object.keys(count).length;
+  }
+  return out;
+}
+var _sigPadHandlers={};
+function initSigPads(){
+  document.querySelectorAll('canvas[data-sig-key]').forEach(function(canvas){
+    if(canvas.dataset.sigReady==='1') return;
+    canvas.dataset.sigReady='1';
+    var key=canvas.getAttribute('data-sig-key');
+    var ctx=canvas.getContext('2d');
+    function sizeCanvas(){
+      var rect=canvas.getBoundingClientRect(); var ratio=window.devicePixelRatio||1;
+      var w=Math.max(240,Math.floor(rect.width||canvas.clientWidth||500)); var h=130;
+      var old=canvas.toDataURL();
+      canvas.width=Math.floor(w*ratio); canvas.height=Math.floor(h*ratio);
+      ctx=canvas.getContext('2d'); ctx.setTransform(ratio,0,0,ratio,0,0); ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#111';
+      var hidden=document.getElementById('f_'+key); var src=hidden&&hidden.value;
+      if(src && /^data:image\//.test(src)){ var img=new Image(); img.onload=function(){ctx.drawImage(img,0,0,w,h);}; img.src=src; }
+    }
+    sizeCanvas();
+    var drawing=false, moved=false;
+    function point(ev){ var r=canvas.getBoundingClientRect(); return {x:ev.clientX-r.left,y:ev.clientY-r.top}; }
+    canvas.addEventListener('pointerdown',function(ev){ drawing=true; moved=false; canvas.setPointerCapture&&canvas.setPointerCapture(ev.pointerId); var p=point(ev); ctx.beginPath(); ctx.moveTo(p.x,p.y); ev.preventDefault(); });
+    canvas.addEventListener('pointermove',function(ev){ if(!drawing)return; var p=point(ev); ctx.lineTo(p.x,p.y); ctx.stroke(); moved=true; ev.preventDefault(); });
+    function endDraw(){ if(!drawing)return; drawing=false; if(moved){var hidden=document.getElementById('f_'+key);if(hidden) hidden.value=canvas.toDataURL('image/png');} }
+    canvas.addEventListener('pointerup',endDraw); canvas.addEventListener('pointercancel',endDraw); canvas.addEventListener('pointerleave',endDraw);
+    _sigPadHandlers[key]={clear:function(){var r=canvas.getBoundingClientRect();ctx.clearRect(0,0,r.width,130);var hidden=document.getElementById('f_'+key);if(hidden)hidden.value='';}};
+  });
+}
+function clearSigPad(key){ if(_sigPadHandlers[key]) _sigPadHandlers[key].clear(); }
+
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function parseDate(s){ if(s instanceof Date) return s; var m = String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return new Date(+m[1], +m[2]-1, +m[3]); return new Date(s); }
 function tgl(d){ if(!d) return ''; var dt = parseDate(d); if(isNaN(dt)) return String(d); return dt.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
@@ -2143,6 +2523,10 @@ function renderDashboard(){
     hadirAll.forEach(function(r){ if(String(r.Tanggal) === tglHariIni && r.Kelas) checkedMap[r.Kelas] = true; });
     var sudahN = ksAll.filter(function(k){ return !!checkedMap[k]; }).length;
     var html = '';
+    if(batch.__errors && Object.keys(batch.__errors).length){
+      var detailErrorDashboard = Object.keys(batch.__errors).map(function(k){ return k+': '+batch.__errors[k]; }).join(' | ');
+      html += '<div class="notif err" style="margin-bottom:10px"><b>⚠️ Sebagian data dashboard gagal dimuat.</b> '+esc(detailErrorDashboard)+'<br>Periksa tabel, nama kolom, dan izin RLS Supabase.</div>';
+    }
     var roleLabel = ST.user.role==='admin'?'Administrator':ST.user.role==='gurubk'?'Guru BK'+(ST.guru?' — '+ST.guru.Nama:''):ST.user.role==='gurupiket'?'Guru Piket'+(ST.guru?' — '+ST.guru.Nama:''):'Tamu';
     html += '<div class="dash-head"><div class="who">'+esc(roleLabel)+'</div><div class="d">'+tglPanjang(tglHariIni)+'</div></div>';
     if(!isPiket){
@@ -2680,10 +3064,16 @@ async function simpanLayanan(key, id){
   if(key === 'terlambat' && !d.JamDatang){ toast('Jam Datang wajib diisi','er'); return; }
   if(!d.Nama && d.NIS){ var s = (ST.siswa||[]).find(function(x){ return String(x.NIS) === String(d.NIS); }); if(s) d.Nama = s.Nama; }
   if(!d.Nama){ toast('Nama siswa tidak ditemukan','er'); return; }
-  Object.keys(d).forEach(function(k){ if(d[k] === undefined || d[k] === null) d[k] = ''; });
+  // collectForm mempertahankan null untuk tanggal/jam/angka opsional agar tidak
+  // terkirim sebagai string kosong yang ditolak kolom bertipe DATE/TIME/INTEGER.
   if(!Array.isArray(ST.cache[key])){
-    try { var fresh = await api('getData', { sheet: key==='izin'?SH.IZIN:SH.TERLAMBAT }); setCache(key, fresh || []); }
-    catch(err){ setCache(key, []); }
+    try {
+      var fresh = await api('getData', { sheet: key==='izin'?SH.IZIN:SH.TERLAMBAT });
+      setCache(key, fresh || []);
+    } catch(err) {
+      toast('Data lama gagal dibaca; penyimpanan dibatalkan agar tidak terjadi duplikasi. '+err.message, 'er');
+      return;
+    }
   }
   var existingRows = ST.cache[key] || [];
   var keySet = buildExistingKeySet(key, existingRows, id || null);
@@ -3007,6 +3397,7 @@ function popupValidasiWA(){
     html += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin:8px 0 10px">'+
       '<button class="btn5 btn-sm" onclick="pilihSemuaKelasWA(true)">☑ Pilih Semua</button>'+
       '<button class="btn2 btn-sm" onclick="pilihSemuaKelasWA(false)">☐ Kosongkan</button>'+
+      '<button class="btn2 btn-sm" onclick="cetakKelasTerpilihWA()">🖨 Cetak Kelas Terpilih</button>'+
       '<button class="btn4 btn-sm" onclick="cekKelasTerpilihWA()">🔍 Cek Terpilih</button>'+
       '<button class="btn4 btn-sm" onclick="cekSemuaNomorWA()">🔍 Cek Semua Nomor</button></div>';
 
@@ -3026,12 +3417,13 @@ function popupValidasiWA(){
       html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 4px;padding:7px 9px;background:#f7fafd;border-left:3px solid #1a73e8;border-radius:6px">'+
         '<div class="wa-class-title"><input type="checkbox" class="chkKelasWA" value="'+esc(k)+'" style="width:auto;margin:0"> Kelas '+esc(k)+' <span style="font-weight:400;color:#5a6b7c;font-size:10.5px">'+kelasList.length+' siswa · '+aktifKelas+'/'+hpKelas+' nomor aktif ('+pctKelas+'%)</span></div>'+
         '<div class="wa-class-tools"><button class="btn4 btn-sm" data-kelas="'+esc(k)+'" onclick="cekKelasWABtn(this)">🔍 Cek Kelas</button></div></div>';
-      html += '<div class="tw" style="margin-bottom:9px"><table class="wa-compact" style="min-width:560px"><thead><tr><th style="width:35px">No</th><th style="width:85px">NIS</th><th>Nama Siswa</th><th class="wa-status-cell">WA Siswa</th><th class="wa-status-cell">WA Ayah</th><th class="wa-status-cell">WA Ibu</th></tr></thead><tbody>';
+      html += '<div class="tw" style="margin-bottom:9px"><table class="wa-compact" style="min-width:560px"><thead><tr><th style="width:35px">No</th><th style="width:85px">NIS</th><th>Nama Siswa</th><th class="wa-status-cell">WA Siswa</th><th class="wa-status-cell">WA Ayah</th><th class="wa-status-cell">WA Ibu</th><th style="width:74px;text-align:center">Cetak</th></tr></thead><tbody>';
       kelasList.forEach(function(s,i){
         html += '<tr><td>'+(i+1)+'</td><td>'+esc(s.NIS||'-')+'</td><td>'+esc(s.Nama||'-')+'</td>';
         ['siswa','ayah','ibu'].forEach(function(target){
           html += '<td id="waCell_'+esc(s.NIS)+'_'+target+'" class="wa-status-cell">'+buildWACellHTML(s,target)+'</td>';
         });
+        if(i===0) html += '<td rowspan="'+kelasList.length+'" style="text-align:center;vertical-align:middle"><button class="btn2 btn-sm" data-kelas="'+esc(k)+'" onclick="cetakKelasWABtn(this)" title="Cetak daftar validasi kelas ini">🖨</button></td>';
         html += '</tr>';
       });
       html += '</tbody></table></div>';
@@ -3769,6 +4161,11 @@ function filterJurnal(){
   var filters = {};
   sheets.forEach(function(s){ filters[s] = { since: dari, until: sampai }; });
   api('batchGetData', { sheets: sheets, filters: filters }).then(function(all){
+    var jurnalWarning = '';
+    if(all.__errors && Object.keys(all.__errors).length){
+      var detailJurnalError = Object.keys(all.__errors).map(function(k){ return k+': '+all.__errors[k]; }).join(' | ');
+      jurnalWarning = '<div class="notif err">Sebagian sumber jurnal gagal dimuat: '+esc(detailJurnalError)+'. Catatan dari tabel yang berhasil tetap ditampilkan.</div>';
+    }
     var eventsByDate = {};
     var ks = kelasSaya();
     var isAdmin = (ST.user.role === 'admin');
@@ -3839,13 +4236,13 @@ function filterJurnal(){
     var dates = Object.keys(eventsByDate).sort(function(a,b){ return b.localeCompare(a); });
     ST.cache['jurnal_view'] = dates.map(function(d){ return eventsByDate[d]; });
     if(!dates.length){
-      vEl.innerHTML = '<div class="hint" style="margin-bottom:9px">📅 Periode: <b>'+esc(p.label)+'</b></div>'+
+      vEl.innerHTML = jurnalWarning + '<div class="hint" style="margin-bottom:9px">📅 Periode: <b>'+esc(p.label)+'</b></div>'+
         '<div class="empty">Tidak ada catatan jurnal pada periode ini.<br><span class="hint">Hari Sabtu, Ahad, dan libur nasional dikecualikan.</span></div>';
       return;
     }
     var totalItems = 0;
     dates.forEach(function(d){ totalItems += eventsByDate[d].Items.length; });
-    var html = '<div class="stat" style="margin-bottom:14px">'+
+    var html = jurnalWarning + '<div class="stat" style="margin-bottom:14px">'+
       '<div class="sc g"><div class="n">'+dates.length+'</div><div class="l">Hari Tercatat</div></div>'+
       '<div class="sc b"><div class="n">'+totalItems+'</div><div class="l">Total Kegiatan</div></div>'+
     '</div>';
@@ -3972,8 +4369,8 @@ function renderKehadiran(){
   var activeTab = ST.khTab || 'harian';
   var tabs = [
     {id:'harian', label:'📅 Harian'},
-    {id:'daftar', label:'📋 Daftar Absensi Hari Ini'},
     {id:'matriks', label:'📊 Absen Bulanan'},
+    {id:'daftar', label:'📋 Daftar Absensi Hari Ini'},
     {id:'laporan', label:'📈 Laporan'}
   ];
   $('#main').innerHTML = '<div class="hd"><div><h2>📋 Presensi</h2><div class="sub">Kelola presensi siswa</div></div>'+
@@ -4928,7 +5325,7 @@ function ambilSemua(){
   var filters = {};
   sheets.forEach(function(s){ filters[s] = { since: p.dari, until: p.sampai }; });
   return api('batchGetData', { sheets: sheets, filters: filters })
-    .then(function(out){ sheets.forEach(function(s){ if(!out[s]) out[s] = []; }); ST.cache.lpAll = out; return out; })
+    .then(function(out){ sheets.forEach(function(s){ if(!out[s]) out[s] = []; }); ST.cache.lpAll = out; ST.cache.lpErrors = out.__errors || {}; return out; })
     .catch(function(e){
       console.warn('[BK] batchGetData gagal, fallback:', e.message);
       return Promise.all(sheets.map(function(s){
