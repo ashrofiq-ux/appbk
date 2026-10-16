@@ -400,7 +400,8 @@ body.dark .wa-mark-note{color:#8ba0b3}
 body.dark .wa-class-title{color:#7fb8f5}
 body.dark .wa-class-title span{color:#8ba0b3!important}
 body.dark .wa-class-title+span{color:#8ba0b3}
-.siswa-table table{min-width:650px;font-size:11.5px}.siswa-table th{padding:6px 7px;letter-spacing:.2px}.siswa-table td{padding:6px 7px;vertical-align:middle}.siswa-table .right{justify-content:flex-start}\n</style>
+.siswa-table table{min-width:650px;font-size:11.5px}.siswa-table th{padding:6px 7px;letter-spacing:.2px}.siswa-table td{padding:6px 7px;vertical-align:middle}.siswa-table .right{justify-content:flex-start}
+</style>
 </head>
 <body>
 
@@ -618,7 +619,6 @@ function invalidasiCacheSetelahTulis(action, payload){
     setSiswaWaStatus:1, restoreAll:1
   };
   if(!aksiTulis[action]) return;
-  // Buang cache rekap agar hasil simpan/edit/hapus selalu diambil ulang dari database.
   ['lpAll','lp','rpAll','rp','jurnal_view','jurnal','view_izin','view_terlambat',
    'v_klasikal','v_kelompok','v_kr','v_konseling','v_panggilan','v_kasus',
    'v_konferensi','v_alihtangan','v_anekdot','v_lainlain'].forEach(function(k){
@@ -766,8 +766,6 @@ async function _apiImpl(action, payload){
     }
 
     case 'bootstrap': {
-      // Tabel inti diperiksa secara ketat. Tabel kontrol input siswa bersifat tambahan:
-      // bila belum tersedia, aplikasi utama tetap boleh dibuka dan peringatan dicatat.
       var res = await Promise.all([
         sb.from('bk_kelas').select('*').order('nama'),
         sb.from('bk_gurubk').select('*'),
@@ -824,8 +822,6 @@ async function _apiImpl(action, payload){
         if(!tn){ result[s] = []; errors[s] = 'Nama tabel tidak dikenal.'; return; }
         var f = filters[s] || {};
         try{
-          // Setiap tabel dimuat sendiri-sendiri. Satu tabel bermasalah tidak boleh
-          // menyembunyikan data dari tabel lain (khususnya jurnal, dashboard, dan laporan).
           var rawR = await fetchAllRowsPaginated(sb, tn, { since:f.since, until:f.until });
           result[s] = rawR.map(function(r){ return fromRow(s, r); });
         }catch(e){
@@ -870,8 +866,6 @@ async function _apiImpl(action, payload){
       if(shS === SH.SETTING) dS.Key = dS.Key || idS;
       if(shS !== SH.KELAS && shS !== SH.SISWA && shS !== SH.SETTING) dS.ID = dS.ID || idS;
       var rowS = toRow(shS, dS);
-      // Set kolom primary key sesuai struktur tiap tabel; bk_kelas dan bk_siswa
-      // memakai nama/nis, bukan kolom id.
       if(shS === SH.KELAS) {
         rowS = { nama: idS };
       } else if(shS === SH.SISWA) {
@@ -983,7 +977,6 @@ async function _apiImpl(action, payload){
       if(payload.NoHPAyah !== undefined){ recSS.no_hp_ayah = formatPhoneForDB(payload.NoHPAyah); recSS.wa_status_ayah = null; }
       if(payload.NamaIbu !== undefined)  recSS.nama_ibu   = payload.NamaIbu || '';
       if(payload.NoHPIbu !== undefined){ recSS.no_hp_ibu = formatPhoneForDB(payload.NoHPIbu); recSS.wa_status_ibu = null; }
-      // Simpan ke NIS baru dahulu. Jangan menghapus NIS lama sebelum upsert berhasil.
       var rSS = await sb.from('bk_siswa').upsert(recSS, { onConflict:'nis' });
       if(rSS.error) throw rSS.error;
       if(oldNis && oldNis !== NIS){
@@ -1002,7 +995,6 @@ async function _apiImpl(action, payload){
     case 'setSiswaInputLock': {
       if(!ST.user || ST.user.role !== 'admin') throw new Error('Hanya Administrator yang dapat mengunci atau membuka input siswa');
       var lockValue = !!payload.locked;
-      // Hindari kolom updated_at yang mungkin tidak ada pada skema lama.
       var lockSave = await sb.from('bk_kontrol_siswa').upsert({id:1,input_terkunci:lockValue}, {onConflict:'id'});
       if(lockSave.error) throw lockSave.error;
       return {ok:true,locked:lockValue};
@@ -1417,7 +1409,6 @@ function buildForm(key, data){
       else if(f.def!==undefined) value=f.def;
       else value='';
     }
-    // Field internal seperti Petugas harus benar-benar tersembunyi tanpa label kosong.
     if(f.t==='hidden'){
       html += '<input type="hidden" id="f_'+f.k+'" value="'+esc(value)+'">';
       return;
@@ -1580,6 +1571,203 @@ function formatPhoneForDB(n){
 }
 function waLink(nama, nomor, pesan){ var n=normPhone(nomor); if(!n) return ''; return 'https://wa.me/'+n+'?text='+encodeURIComponent(pesan||('Assalamualaikum '+(nama||'')+', ')); }
 function waIconSVG(){ return '<svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'; }
+
+/* ====== WA GATEWAY LOKAL ====== */
+function defaultWaTemplate(){
+  return "Assalamu'alaikum Bapak/Ibu {ortu},\n\n" +
+         "Kami dari Bimbingan Konseling SMAN 1 Klirong memberitahukan bahwa anak Bapak/Ibu:\n\n" +
+         "Nama   : *{nama}*\n" +
+         "NIS    : {nis}\n" +
+         "Kelas  : {kelas}\n" +
+         "Tanggal: {tanggal}\n" +
+         "Status : *{status}*\n" +
+         "Ket.   : {keterangan}\n\n" +
+         "Mohon konfirmasi kepada pihak sekolah. Terima kasih.\n\n" +
+         "_Pesan otomatis dari Sistem BK SMAN 1 Klirong_";
+}
+function getWAGatewayUrl(){ return String((ST.setting && ST.setting.waGatewayUrl) || '').replace(/\/+$/,''); }
+function isWAAutoSend(){ return String((ST.setting && ST.setting.waAutoSend) || '0') === '1'; }
+
+async function cekStatusGatewayWA(){
+  var url = getWAGatewayUrl();
+  if(!url) return { ok:false, msg:'URL gateway belum diatur di Setting → WhatsApp Gateway.' };
+  try{
+    var r = await fetch(url + '/status', { method:'GET' });
+    if(!r.ok) return { ok:false, msg:'Gateway merespon HTTP ' + r.status };
+    var d = await r.json();
+    if(d.state !== 'connected') return { ok:false, msg:'WhatsApp belum terhubung. Buka ' + url + '/qr untuk scan.', state:d.state };
+    return { ok:true, state:d.state, me:d.me };
+  }catch(e){
+    return { ok:false, msg:'Tidak dapat menghubungi gateway (' + e.message + '). Pastikan server Node.js sudah dijalankan.' };
+  }
+}
+
+function renderTemplateWA(tpl, vars){
+  var out = String(tpl || '');
+  Object.keys(vars).forEach(function(k){ out = out.split(k).join(vars[k]); });
+  return out;
+}
+
+/**
+ * Kirim notifikasi WA presensi ke orang tua siswa berstatus S/I/A
+ */
+async function kirimNotifikasiWAPresensi(rows, tanggal, options){
+  options = options || {};
+  var gatewayUrl = getWAGatewayUrl();
+  if(!gatewayUrl){
+    if(!options.silent) toast('URL Gateway WhatsApp belum diatur di Setting','er');
+    return { sent:0, failed:0, skipped:0 };
+  }
+
+  var targets = (rows||[]).filter(function(r){
+    return ['S','I','A'].indexOf(String(r.Status||'').toUpperCase()) >= 0;
+  });
+  if(!targets.length){
+    if(!options.silent) toast('Tidak ada siswa Sakit/Izin/Alpa untuk dikirim WA','inf');
+    return { sent:0, failed:0, skipped:0, noTarget:true };
+  }
+
+  var st = await cekStatusGatewayWA();
+  if(!st.ok){
+    if(!options.silent) toast('Gateway WA: ' + st.msg, 'er');
+    return { sent:0, failed:0, skipped:targets.length, error:st.msg };
+  }
+
+  var tpl = (ST.setting && ST.setting.waTemplate) || defaultWaTemplate();
+  var delayMs = parseInt((ST.setting && ST.setting.waDelayMs) || '3000', 10);
+  if(isNaN(delayMs) || delayMs < 1000) delayMs = 3000;
+  var tglTxt = tglPanjang(tanggal);
+
+  var siswaMap = {};
+  (ST.siswa||[]).forEach(function(s){ siswaMap[String(s.NIS)] = s; });
+
+  var messages = [];
+  targets.forEach(function(r){
+    var s = siswaMap[String(r.NIS)];
+    if(!s) return;
+    var statusLabel = r.Status==='S' ? 'Sakit' : r.Status==='I' ? 'Izin' : 'Alpa';
+    var base = {
+      '{nama}': r.Nama || s.Nama || '',
+      '{nis}': r.NIS || s.NIS || '',
+      '{kelas}': r.Kelas || s.Kelas || '',
+      '{tanggal}': tglTxt,
+      '{status}': statusLabel,
+      '{keterangan}': (r.Keterangan && r.Keterangan.trim()) ? r.Keterangan : 'tidak dicantumkan'
+    };
+    if(String(s.NoHPAyah||'').trim()){
+      var vA = Object.assign({}, base, { '{ortu}': 'Ayah ' + (s.NamaAyah || '') });
+      messages.push({ to: s.NoHPAyah, nis: s.NIS, target:'ayah', message: renderTemplateWA(tpl, vA) });
+    }
+    if(String(s.NoHPIbu||'').trim()){
+      var vI = Object.assign({}, base, { '{ortu}': 'Ibu ' + (s.NamaIbu || '') });
+      messages.push({ to: s.NoHPIbu, nis: s.NIS, target:'ibu', message: renderTemplateWA(tpl, vI) });
+    }
+  });
+
+  if(!messages.length){
+    if(!options.silent) toast('Tidak ada nomor orang tua yang terisi pada siswa S/I/A','inf');
+    return { sent:0, failed:0, skipped:targets.length, noPhone:true };
+  }
+
+  var result = { sent:0, failed:0, total:messages.length, details:[] };
+  for(var i=0; i<messages.length; i++){
+    var m = messages[i];
+    try{
+      var res = await fetch(gatewayUrl + '/send', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ to:m.to, message:m.message })
+      });
+      if(res.ok){ result.sent++; result.details.push({ ok:true, nis:m.nis, target:m.target }); }
+      else {
+        var errTxt = await res.text();
+        result.failed++;
+        result.details.push({ ok:false, nis:m.nis, target:m.target, error:errTxt });
+      }
+    }catch(e){
+      result.failed++;
+      result.details.push({ ok:false, nis:m.nis, target:m.target, error:e.message });
+    }
+    if(options.onProgress) options.onProgress(i+1, messages.length);
+    if(i < messages.length-1) await new Promise(function(r){ setTimeout(r, delayMs); });
+  }
+  return result;
+}
+
+function kirimNotifikasiWAManual(){
+  var tgl = ST.cache.khHarianTgl || today();
+  var rows = (ST.cache.viewHadirHarian || []).filter(function(r){
+    return String(r.Tanggal) === tgl;
+  });
+  var pool = rows.length ? rows : (ST.cache.viewHadir || []);
+  var targets = pool.filter(function(r){
+    return String(r.Tanggal)===tgl && ['S','I','A'].indexOf(String(r.Status).toUpperCase())>=0;
+  });
+  if(!targets.length){
+    // fallback: ambil dari daftar absensi hari ini di server
+    toast('Mengambil data presensi ' + tgl + '…','inf');
+    getHadirRowsRange(tgl, tgl).then(function(data){
+      var d = (data||[]).filter(function(r){ return ['S','I','A'].indexOf(String(r.Status).toUpperCase())>=0; });
+      if(!d.length){ toast('Tidak ada siswa Sakit/Izin/Alpa pada tanggal ' + tgl, 'inf'); return; }
+      confirmBox(
+        'Kirim notifikasi WhatsApp ke orang tua siswa Sakit/Izin/Alpa?\n\n' +
+        'Tanggal: ' + tglPanjang(tgl) + '\n' +
+        'Jumlah siswa: ' + d.length + '\n' +
+        'Setiap siswa akan dikirim ke nomor Ayah dan Ibu (jika terisi).',
+        function(){ jalankanKirimWAWithProgress(d, tgl); }
+      );
+    }).catch(function(e){ toast('Gagal: ' + e.message, 'er'); });
+    return;
+  }
+  confirmBox(
+    'Kirim notifikasi WhatsApp ke orang tua siswa Sakit/Izin/Alpa?\n\n' +
+    'Tanggal: ' + tglPanjang(tgl) + '\n' +
+    'Jumlah siswa: ' + targets.length + '\n' +
+    'Setiap siswa akan dikirim ke nomor Ayah dan Ibu (jika terisi).',
+    function(){ jalankanKirimWAWithProgress(targets, tgl); }
+  );
+}
+
+async function jalankanKirimWAWithProgress(targets, tgl){
+  var totalSiswa = targets.length;
+  var progressId = 'waProg_' + Date.now();
+  var panel = document.createElement('div');
+  panel.id = progressId;
+  panel.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;max-width:520px;margin:0 auto;background:#0f1720;color:#fff;padding:16px 20px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);z-index:9999;font-family:inherit;font-size:13px';
+  panel.innerHTML =
+    '<div style="font-weight:700;margin-bottom:8px">📤 Mengirim WhatsApp…</div>' +
+    '<div style="background:#2a3a4a;height:8px;border-radius:4px;overflow:hidden;margin-bottom:10px"><div id="'+progressId+'_bar" style="background:#25D366;height:100%;width:0%;transition:.3s"></div></div>' +
+    '<div id="'+progressId+'_txt" style="font-size:11.5px;opacity:.85">0 / 0</div>';
+  document.body.appendChild(panel);
+
+  var res = await kirimNotifikasiWAPresensi(targets, tgl, {
+    onProgress: function(done, total){
+      var bar = document.getElementById(progressId+'_bar'); if(bar) bar.style.width = Math.round(done/total*100)+'%';
+      var txt = document.getElementById(progressId+'_txt'); if(txt) txt.textContent = done + ' / ' + total + ' pesan';
+    }
+  });
+
+  panel.innerHTML =
+    '<div style="font-weight:700;margin-bottom:8px">✅ Selesai mengirim WhatsApp</div>' +
+    '<div style="font-size:12.5px;line-height:1.8">' +
+      'Target siswa: <b>'+totalSiswa+'</b><br>' +
+      'Total pesan: <b>'+res.total+'</b><br>' +
+      '<span style="color:#4ade80">✓ Terkirim: <b>'+res.sent+'</b></span><br>' +
+      (res.failed ? '<span style="color:#f59a8e">✗ Gagal: <b>'+res.failed+'</b></span>' : '') +
+      (res.error ? '<div style="color:#f59a8e;margin-top:6px">'+esc(res.error)+'</div>' : '') +
+    '</div>' +
+    '<button style="margin-top:10px;background:#2a3a4a;color:#fff;padding:6px 14px;border-radius:6px" onclick="this.parentNode.remove()">Tutup</button>';
+
+  setTimeout(function(){
+    var el = document.getElementById(progressId);
+    if(el && el.parentNode){ el.style.opacity='0'; el.style.transition='.6s'; setTimeout(function(){ el.remove(); }, 700); }
+  }, 8000);
+
+  toast('WA: ' + res.sent + ' terkirim' + (res.failed ? ', ' + res.failed + ' gagal' : ''));
+}
+
+/* ====== END WA GATEWAY LOKAL ====== */
+
 function toast(msg, type){
   var d = document.createElement('div');
   d.className = 'tst ' + (type==='er'?'er':type==='inf'?'inf':'ok');
@@ -2608,6 +2796,7 @@ function renderSetting(){
     {id:'gurupiket', label:'👮 Guru Piket'},
     {id:'tamu', label:'👤 User Tamu'},
     {id:'gdrive', label:'☁️ Backup Google Drive'},
+    {id:'wa', label:'📱 WhatsApp Gateway'},
     {id:'backup', label:'💾 Backup / Restore'},
     {id:'password', label:'🔐 Ganti Password'}
   ];
@@ -2619,7 +2808,7 @@ function renderSetting(){
 }
 function settingTabGo(t){
   SETTING_TAB = t;
-  $$('.tabs .tab').forEach(function(b){ b.classList.toggle('on', b.textContent.indexOf(({identitas:'Identitas',kelas:'Kelas',gurubk:'Guru BK',gurupiket:'Guru Piket',tamu:'User Tamu',gdrive:'Google Drive',backup:'Backup',password:'Ganti Password'})[t]) >= 0); });
+  $$('.tabs .tab').forEach(function(b){ b.classList.toggle('on', b.textContent.indexOf(({identitas:'Identitas',kelas:'Kelas',gurubk:'Guru BK',gurupiket:'Guru Piket',tamu:'User Tamu',gdrive:'Google Drive',wa:'WhatsApp',backup:'Backup',password:'Ganti Password'})[t]) >= 0); });
   var el = $('#settingContent');
   if(t === 'identitas') renderSetIdentitas(el);
   else if(t === 'kelas') renderSetKelas(el);
@@ -2627,6 +2816,7 @@ function settingTabGo(t){
   else if(t === 'gurupiket') renderSetGuruPiket(el);
   else if(t === 'tamu') renderSetTamu(el);
   else if(t === 'gdrive') renderSetGDrive(el);
+  else if(t === 'wa') renderSetWA(el);
   else if(t === 'backup') renderSetBackup(el);
   else if(t === 'password') renderSetPassword(el);
 }
@@ -2729,6 +2919,110 @@ function renderSetGDrive(el){
   '</div>';
   setTimeout(function(){ gdRenderList(); }, 100);
 }
+
+/* ====== RENDER SETTING WHATSAPP GATEWAY ====== */
+function renderSetWA(el){
+  var s = ST.setting || {};
+  var url   = s.waGatewayUrl || 'http://localhost:3000';
+  var auto  = String(s.waAutoSend || '0') === '1';
+  var delay = s.waDelayMs || '3000';
+  var tpl   = s.waTemplate || defaultWaTemplate();
+
+  el.innerHTML =
+  '<div class="card"><h2>📱 WhatsApp Gateway (Lokal)</h2>' +
+    '<div class="sub">Kirim notifikasi otomatis ke orang tua siswa Sakit/Izin/Alpa melalui gateway WhatsApp yang berjalan di laptop Anda.</div>' +
+
+    '<div class="gdrive-box"><b>Persiapan di laptop Windows (sekali saja):</b>' +
+      '<ol>' +
+        '<li>Install <b>Node.js LTS</b> dari <a href="https://nodejs.org" target="_blank">nodejs.org</a>.</li>' +
+        '<li>Buat folder misal <code>D:\\wa-gateway-bk</code>, isi file <code>package.json</code> &amp; <code>server.js</code> (sudah disediakan terpisah).</li>' +
+        '<li>Buka CMD di folder itu, jalankan: <code>npm install</code> lalu <code>npm start</code>.</li>' +
+        '<li>Buka browser <code>http://localhost:3000/qr</code> → scan pakai WhatsApp HP gateway.</li>' +
+        '<li>Setelah tertulis <b>WA terhubung</b>, biarkan CMD tetap jalan (minimize).</li>' +
+      '</ol>' +
+      '<div style="margin-top:8px">💡 Untuk pemakaian dari HP/PC lain di jaringan yang sama, ganti URL ke IP laptop, contoh: <code>http://192.168.1.10:3000</code> dan izinkan port 3000 di Windows Firewall.</div>' +
+    '</div>' +
+
+    '<div class="fg" style="margin-top:14px"><label>URL Gateway WhatsApp</label>' +
+      '<input id="setWaUrl" value="'+esc(url)+'" placeholder="http://localhost:3000">' +
+      '<div class="hint">Alamat server Node.js WhatsApp gateway.</div>' +
+    '</div>' +
+
+    '<div class="fg"><label>Template Pesan</label>' +
+      '<textarea id="setWaTpl" rows="9" placeholder="Gunakan placeholder di bawah">'+esc(tpl)+'</textarea>' +
+      '<div class="hint">Placeholder tersedia: <code>{ortu}</code>, <code>{nama}</code>, <code>{nis}</code>, <code>{kelas}</code>, <code>{tanggal}</code>, <code>{status}</code>, <code>{keterangan}</code></div>' +
+    '</div>' +
+
+    '<div class="row r2">' +
+      '<div class="fg"><label>Jeda Antar Pesan (ms)</label>' +
+        '<input id="setWaDelay" type="number" min="1500" step="500" value="'+esc(delay)+'">' +
+        '<div class="hint">Minimal 1500 ms. Disarankan 3000–5000 ms agar nomor tidak diblokir WA.</div>' +
+      '</div>' +
+      '<div class="fg"><label>Kirim Otomatis Setelah Presensi</label>' +
+        '<select id="setWaAuto">' +
+          '<option value="0"' + (!auto?' selected':'') + '>Tidak — kirim manual lewat tombol</option>' +
+          '<option value="1"' + ( auto?' selected':'') + '>Ya — otomatis begitu presensi disimpan</option>' +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:6px">' +
+      '<button class="btn" onclick="simpanSettingWA()">💾 Simpan Pengaturan</button>' +
+      '<button class="btn2" onclick="ujiKoneksiGatewayWA()">🔌 Uji Koneksi Gateway</button>' +
+      '<button class="btn4" onclick="window.open((document.getElementById(\'setWaUrl\').value||\'\').replace(/\\/+$/,\'\')+\'/qr\',\'_blank\')">📷 Buka QR</button>' +
+      '<button class="btn2" onclick="kirimPesanUjiWA()">✉️ Kirim Pesan Uji</button>' +
+    '</div>' +
+
+    '<div id="waStatusBox" style="margin-top:14px"></div>' +
+  '</div>';
+}
+
+function simpanSettingWA(){
+  var data = {
+    waGatewayUrl: (document.getElementById('setWaUrl').value||'').trim().replace(/\/+$/,''),
+    waTemplate:   document.getElementById('setWaTpl').value || defaultWaTemplate(),
+    waDelayMs:    String(parseInt(document.getElementById('setWaDelay').value||'3000',10) || 3000),
+    waAutoSend:   document.getElementById('setWaAuto').value === '1' ? '1' : '0'
+  };
+  api('saveSetting', data).then(function(){
+    ST.setting = Object.assign(ST.setting||{}, data);
+    try{
+      var c = JSON.parse(localStorage.getItem('bk_master')||'null');
+      if(c){ c.setting = ST.setting; localStorage.setItem('bk_master', JSON.stringify(c)); }
+    }catch(e){}
+    toast('Pengaturan WhatsApp disimpan');
+  }).catch(function(e){ toast('Gagal: ' + e.message,'er'); });
+}
+
+async function ujiKoneksiGatewayWA(){
+  var box = document.getElementById('waStatusBox'); if(!box) return;
+  box.innerHTML = '<div class="hint">⏳ Menghubungi gateway…</div>';
+  var st = await cekStatusGatewayWA();
+  if(st.ok){
+    box.innerHTML = '<div class="notif new">✅ Gateway terhubung. Akun: <b>'+esc((st.me && (st.me.name || st.me.id)) || 'WhatsApp')+'</b></div>';
+  }else{
+    box.innerHTML = '<div class="notif err">❌ '+esc(st.msg)+'</div>';
+  }
+}
+
+function kirimPesanUjiWA(){
+  var nomor = prompt('Masukkan nomor WhatsApp tujuan (contoh: 08123456789):');
+  if(!nomor) return;
+  var url = (document.getElementById('setWaUrl').value||'').trim().replace(/\/+$/,'');
+  if(!url) return toast('URL gateway kosong','er');
+  toast('Mengirim…','inf');
+  fetch(url + '/send', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ to: nomor, message: '✅ Uji coba dari Aplikasi BK SMAN 1 Klirong — gateway WA berjalan normal.' })
+  }).then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+   .then(function(x){
+      if(x.ok) toast('✅ Pesan uji terkirim ke ' + nomor);
+      else toast('❌ Gagal: ' + (x.d.error || 'unknown'), 'er');
+   }).catch(function(e){ toast('❌ ' + e.message, 'er'); });
+}
+/* ====== END RENDER SETTING WHATSAPP GATEWAY ====== */
+
 function renderSetBackup(el){
   el.innerHTML = '<div class="card"><h2>💾 Backup / Restore (File Lokal)</h2>'+
     '<div class="sub">Simpan/restore data server ke file .json di perangkat Anda</div>'+
@@ -3064,8 +3358,6 @@ async function simpanLayanan(key, id){
   if(key === 'terlambat' && !d.JamDatang){ toast('Jam Datang wajib diisi','er'); return; }
   if(!d.Nama && d.NIS){ var s = (ST.siswa||[]).find(function(x){ return String(x.NIS) === String(d.NIS); }); if(s) d.Nama = s.Nama; }
   if(!d.Nama){ toast('Nama siswa tidak ditemukan','er'); return; }
-  // collectForm mempertahankan null untuk tanggal/jam/angka opsional agar tidak
-  // terkirim sebagai string kosong yang ditolak kolom bertipe DATE/TIME/INTEGER.
   if(!Array.isArray(ST.cache[key])){
     try {
       var fresh = await api('getData', { sheet: key==='izin'?SH.IZIN:SH.TERLAMBAT });
@@ -3333,7 +3625,6 @@ function renderSiswa(){
       '<div class="fg" style="flex:2"><label>Cari (Nama / NIS)</label><input id="sCari" oninput="tabelSiswa()" placeholder="Ketik nama atau NIS…"></div>'+
     '</div><div id="tblSiswa"></div></div>';
   tabelSiswa();
-  // Sinkronkan label tombol dengan status terkini yang tersimpan di Supabase.
   if(ST.user && ST.user.role === 'admin'){
     api('getSiswaInputLock').then(function(locked){
       perbaruiTombolKunciInputSiswa(locked);
@@ -3472,7 +3763,6 @@ function cetakValidasiWABanyak(kelasArr){
     }).sort(function(a,b){ return String(a.Nama||'').localeCompare(String(b.Nama||''), 'id'); });
     if(!rows.length) return;
 
-    // Ukuran huruf diperkecil secara bertahap agar satu kelas muat pada satu lembar A4 mendatar.
     var fontPt = rows.length > 55 ? 5 : rows.length > 48 ? 5.5 : rows.length > 41 ? 6 : rows.length > 34 ? 6.5 : rows.length > 27 ? 7 : 8;
     var html = '<section class="wa-print-class" style="font-size:'+fontPt+'pt;">';
     html += '<h2>DAFTAR VALIDASI NOMOR WHATSAPP</h2>';
@@ -3698,7 +3988,6 @@ function perbaruiTombolKunciInputSiswa(locked){
 }
 function ubahKunciInputSiswa(){
   if(!ST.user || ST.user.role !== 'admin') return toast('Fitur ini hanya untuk Administrator','er');
-  // Ambil nilai terkini dari database agar label dan tindakan tidak bergantung pada status lama di layar.
   api('getSiswaInputLock').then(function(currentlyLocked){
     currentlyLocked = !!currentlyLocked;
     perbaruiTombolKunciInputSiswa(currentlyLocked);
@@ -4374,7 +4663,10 @@ function renderKehadiran(){
     {id:'laporan', label:'📈 Laporan'}
   ];
   $('#main').innerHTML = '<div class="hd"><div><h2>📋 Presensi</h2><div class="sub">Kelola presensi siswa</div></div>'+
-    '<div class="tools"><button class="btn" onclick="formInputKehadiran()">+ Input / Edit Presensi</button></div></div>'+
+    '<div class="tools">' +
+      '<button class="btn" onclick="formInputKehadiran()">+ Input / Edit Presensi</button>' +
+      '<button class="btn4" onclick="kirimNotifikasiWAManual()" title="Kirim WA ke orang tua siswa S/I/A hari ini">📤 Kirim WA Orang Tua</button>' +
+    '</div></div>'+
     tabBar(activeTab, tabs, 'khTabGo') + '<div id="khContent"></div>';
   khTabGo(activeTab);
 }
@@ -4779,6 +5071,16 @@ function simpanKehadiran(){
       closeModal();
       toast(rows.length + ' data ' + (isEdit ? 'diperbarui' : 'disimpan'));
       if(ST.page === 'dashboard') renderDashboard(); else renderKehadiran();
+
+      // ==== AUTO-SEND WA SETELAH PRESENSI ====
+      var targetsWA = rows.filter(function(r){
+        return ['S','I','A'].indexOf(String(r.Status||'').toUpperCase()) >= 0;
+      });
+      if(targetsWA.length && isWAAutoSend()){
+        setTimeout(function(){
+          jalankanKirimWAWithProgress(targetsWA, tglV);
+        }, 600);
+      }
     }).catch(function(e){ toast(e.message,'er'); });
   };
   if(isEdit) confirmBox('Ganti data presensi lama untuk '+kelas+' tanggal '+tglV+'?', doSave);
