@@ -1622,7 +1622,7 @@ function renderTemplateWA(tpl, vars){
   return out;
 }
 
-/* ====== LOG ANTI-DUPLIKAT (mendukung kategori: presensi & terlambat) ====== */
+/* ====== LOG ANTI-DUPLIKAT ====== */
 function waGetLog(){
   try{
     var raw = localStorage.getItem('bk_wa_log');
@@ -3223,6 +3223,39 @@ function renderDashboard(){
       html += '<div class="dash-stat r"><div class="n">'+alpa+'</div><div class="l">Siswa<br>Alpa</div></div>';
     }
     html += '</div>';
+
+    // ==== DAFTAR IZIN KELUAR BELUM KEMBALI (HANYA GURU PIKET) ====
+    if(isPiket){
+      var izinBelumKembali = izin.filter(function(r){ return r.StatusKembali !== 'Kembali'; });
+      if(izinBelumKembali.length){
+        html += '<div class="dash-card" style="border-left:4px solid #f39c12">';
+        html += '<h2>🚪 Siswa Izin Keluar — Belum Kembali</h2>';
+        html += '<div class="sub">'+izinBelumKembali.length+' siswa masih di luar sekolah pada '+tglPanjang(tglHariIni)+'</div>';
+        html += '<div class="tw" style="margin-top:8px"><table style="min-width:auto;font-size:12px"><thead><tr>'+
+          '<th style="width:32px">No</th><th>Nama Siswa</th><th style="width:70px">Kelas</th><th style="width:80px">Jam Keluar</th><th>Alasan</th><th style="width:100px;text-align:center">Aksi</th>'+
+          '</tr></thead><tbody>';
+        izinBelumKembali.sort(function(a,b){ return String(a.JamKeluar||'').localeCompare(String(b.JamKeluar||'')); });
+        izinBelumKembali.forEach(function(r, i){
+          html += '<tr>'+
+            '<td>'+(i+1)+'</td>'+
+            '<td><b>'+esc(r.Nama||'-')+'</b></td>'+
+            '<td>'+esc(r.Kelas||'-')+'</td>'+
+            '<td>'+esc(r.JamKeluar||'-')+'</td>'+
+            '<td style="white-space:pre-wrap">'+esc((r.Alasan||'-').slice(0,80))+'</td>'+
+            '<td style="text-align:center"><button class="btn4 btn-sm" onclick="konfirmasiKembali(\''+r.ID+'\')" title="Konfirmasi siswa sudah kembali">✓ Kembali</button></td>'+
+          '</tr>';
+        });
+        html += '</tbody></table></div>';
+        html += '<div class="hint" style="margin-top:7px">💡 Klik tombol <b>✓ Kembali</b> saat siswa sudah kembali ke sekolah untuk mencatat jam kembali.</div>';
+        html += '</div>';
+      } else if(izin.length > 0){
+        html += '<div class="dash-card" style="border-left:4px solid #27ae60">';
+        html += '<h2>🚪 Izin Keluar Hari Ini</h2>';
+        html += '<div class="sub">'+izin.length+' izin tercatat — <b>semua siswa sudah kembali</b> ke sekolah ✓</div>';
+        html += '</div>';
+      }
+    }
+
     if(!isPiket){
       var tidakMasuk = hadir.filter(function(r){ return r.Status === 'S' || r.Status === 'I' || r.Status === 'A'; });
       html += '<div class="absent-card" style="border-left:4px solid '+(tidakMasuk.length?'#e74c3c':'#27ae60')+'">';
@@ -3727,10 +3760,11 @@ function renderLayanan(key){
   if(!isIzin && ST.user && (ST.user.role === 'gurubk' || ST.user.role === 'admin')){
     buatKelompokBtn = '<button class="btn4" onclick="buatKelompokDariTerlambat()" title="Centang siswa di tabel, lalu klik untuk membuat Bimbingan Kelompok">👥 Buat Bimbingan Kelompok</button>';
   }
+  // Tombol kirim WA hanya untuk admin & guru BK (BUKAN guru piket)
   var waKirimBtn = '';
-if(!isIzin && ST.user && (ST.user.role === 'admin' || ST.user.role === 'gurubk')){
-  waKirimBtn = '<button class="btn4" onclick="kirimNotifikasiWATerlambatManual()" title="Kirim WA ke orang tua siswa terlambat pada periode filter">📤 Kirim WA Orang Tua</button>';
-}
+  if(!isIzin && ST.user && (ST.user.role === 'admin' || ST.user.role === 'gurubk')){
+    waKirimBtn = '<button class="btn4" onclick="kirimNotifikasiWATerlambatManual()" title="Kirim WA ke orang tua siswa terlambat pada periode filter">📤 Kirim WA Orang Tua</button>';
+  }
   $('#main').innerHTML = '<div class="hd"><div><h2>'+judul+'</h2><div class="sub">'+sub+'</div></div>'+
     '<div class="tools"><button class="btn" onclick="formLayanan(\''+key+'\')">+ Tambah Data</button>'+adminImportBtn+buatKelompokBtn+waKirimBtn+'<button class="btn2" onclick="cetakLayanan(\''+key+'\')">🖨 Cetak</button><button class="btn4" onclick="exportLayanan(\''+key+'\')">⬇ Export</button></div></div>'+
     '<div id="layContent"><div class="empty">Memuat…</div></div>';
@@ -3898,12 +3932,12 @@ async function simpanLayanan(key, id){
   if($('#tblLayanan')) filterLayanan(key); else renderLayanan(key);
 
   // ==== AUTO-SEND WA KETERLAMBATAN ====
-// Hanya Admin & Guru BK yang boleh memicu WA otomatis
-if(key === 'terlambat' && isWAAutoSendTerlambat() && !id 
-   && ST.user && (ST.user.role === 'admin' || ST.user.role === 'gurubk')){
-  setTimeout(function(){
-    jalankanKirimWATerlambatWithProgress([d], { skipDuplicates: true });
-  }, 600);
+  // Hanya Admin & Guru BK yang boleh memicu WA otomatis (BUKAN guru piket)
+  if(key === 'terlambat' && isWAAutoSendTerlambat() && !id
+     && ST.user && (ST.user.role === 'admin' || ST.user.role === 'gurubk')){
+    setTimeout(function(){
+      jalankanKirimWATerlambatWithProgress([d], { skipDuplicates: true });
+    }, 600);
   }
 }
 function hapusLayanan(key, id){
